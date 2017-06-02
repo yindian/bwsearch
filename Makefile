@@ -26,7 +26,7 @@ OBJ_DIR = objs
 BIN_DIR = bin
 src2obj = $(addprefix $(OBJ_DIR)/,$(filter %.o,$(1:.c=.o))) $(addprefix $(BIN_DIR)/,$(filter %.a,$1)) $(filter-out %.c %.a,$1)
 
-ifneq ($(shell gsed --version 2>&1),)
+ifneq ($(shell which gsed 2>&1),)
 SED = gsed
 endif
 SED ?= sed
