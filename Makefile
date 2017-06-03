@@ -10,6 +10,8 @@ endif
 
 libdivsufsort_TARGETS = libdivsufsort.a bwt mksary sasearch suftest unbwt
 libdivsufsort_CFLAGS = -fomit-frame-pointer -D__STRICT_ANSI__ -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -Ilibdivsufsort/include -I.
+libdivsufsort_CFLAGS += -fopenmp
+LDFLAGS += -fopenmp
 libdivsufsort_CFLAGS += $(addprefix -D,HAVE_STDDEF_H HAVE_STDLIB_H HAVE_STRING_H HAVE_STRINGS_H HAVE_MEMORY_H HAVE_SYS_TYPES_H INLINE=inline PROJECT_VERSION_FULL=\"\")
 divsufsort_SRCS = divsufsort.c sssort.c trsort.c utils.c
 libdivsufsort_a_SRC = $(addprefix libdivsufsort/lib/, $(divsufsort_SRCS))
