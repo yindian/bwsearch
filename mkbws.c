@@ -86,7 +86,15 @@ int main(int argc, char *argv[])
         CLEAN_UP;
         return FAIL_RET;
     }
-    fprintf(stderr, "Reading %s (%ld bytes) ...\n", argv[1], (long) len);
+    fprintf(stderr, "Reading %s (%lu bytes) ... ", argv[1], (long) len);
+#define TICK do {\
+    start = clock();\
+} while (0)
+#define TOCK do {\
+    finish = clock(); \
+    fprintf(stderr, "%.4f sec\n", (double)(finish - start) / CLOCKS_PER_SEC);\
+} while (0)
+    TICK;
     if (fread(T, sizeof(sauchar_t), len, fp) != len)
     {
         perror("read failed");
@@ -94,16 +102,16 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     fclose(fp);
+    TOCK;
     fprintf(stderr, "Sorting suffix array ... ");
-    start = clock();
+    TICK;
     if (divsufsort(T, SA, len) != 0)
     {
         fprintf(stderr, "sort failed\n");
         CLEAN_UP;
         return FAIL_RET;
     }
-    finish = clock();
-    fprintf(stderr, "%.4f sec\n", (double)(finish - start) / CLOCKS_PER_SEC);
+    TOCK;
     ofname = (char *) malloc(baselen + 5);
 #undef CLEAN_UP
 #define CLEAN_UP free(ofname)
