@@ -7,7 +7,7 @@
 #define CSA_ID_ISA    0x02
 #define CSA_K 4        /* #bytes of integer */
 #define CSA_D 128      /* interval between two SA values stored explicitly */
-#define CSA_D2 256/* interval between two inverse SA values stored explicitly */
+#define CSA_D2 128/* interval between two inverse SA values stored explicitly */
 #define CSA_SIGMA 256  /* alphabet size */
                        
 #endif
