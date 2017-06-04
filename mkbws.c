@@ -3,8 +3,20 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
+#include "csacompat.h"
 #include "sawrapper.h"
 #define MAX_FILE_LEN (1UL << 31)
+
+static void writeint(int k, int64_t x, FILE *fp)
+{
+    int i;
+    for (i=k-1; i>=0; i--)
+    {
+        fputc(x & 0xff, fp);
+        x >>= 8;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     FILE *fp;
@@ -13,7 +25,11 @@ int main(int argc, char *argv[])
     off_t len;
     sauchar_t *T;
     saidx_t *SA;
+    sauchar_t *U;
+    saidx_t *ISA;
+    saidx_t last;
     clock_t start, finish;
+    int i, j;
     if (argc<2|| argc>3|| !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
     {
         printf("Usage: %s input_filename [output_file_basename]\n",
@@ -80,20 +96,24 @@ int main(int argc, char *argv[])
     rewind(fp);
     T = (sauchar_t *) malloc(len * sizeof(sauchar_t));
     SA = (saidx_t *) malloc(len * sizeof(saidx_t));
-    if (!T || !SA)
+    U = (sauchar_t *) malloc(len * sizeof(sauchar_t));
+    ISA = (saidx_t *) malloc(len * sizeof(saidx_t));
+    if (!T || !SA || !U || !ISA)
     {
         fprintf(stderr, "malloc failed\n");
         CLEAN_UP;
         return FAIL_RET;
     }
     fprintf(stderr, "Reading %s (%lu bytes) ... ", argv[1], (long) len);
-#define TICK do {\
+#define TICK do\
+    {\
     start = clock();\
-} while (0)
-#define TOCK do {\
+    } while (0)
+#define TOCK do\
+    {\
     finish = clock(); \
     fprintf(stderr, "%.4f sec\n", (double)(finish - start) / CLOCKS_PER_SEC);\
-} while (0)
+    } while (0)
     TICK;
     if (fread(T, sizeof(sauchar_t), len, fp) != len)
     {
@@ -119,13 +139,94 @@ int main(int argc, char *argv[])
 #define FAIL_RET 2
     sprintf(ofname, "%.*s.idx", baselen, base);
     CHECK_OPEN_FILE(fp, ofname, "wb");
+    fprintf(stderr, "Writing %s ... ", ofname);
+    TICK;
+    writeint(4, CSA_VERSION, fp);
+    writeint(1, CSA_ID_HEADER, fp);
+    writeint(1, CSA_K, fp);
+    writeint(CSA_K, len, fp);
+    writeint(CSA_K, CSA_D, fp);
+    writeint(CSA_K, CSA_D2, fp);
+    writeint(CSA_K, CSA_SIGMA, fp);
+    {
+        off_t C[CSA_SIGMA];
+        int m; /* the number of distinct characters in the text  */
+        memset(C, 0, sizeof(C));
+        for (i = 0; i < len; i++)
+        {
+            ++C[T[i]];
+        }
+        m = 0;
+        for (i = 0; i < CSA_SIGMA; i++)
+        {
+            m += !!C[i];
+        }
+        writeint(CSA_K, m, fp);
+        for (i = 0; i < CSA_SIGMA; i++)
+        {
+            if (C[i])
+            {
+                writeint(1, i, fp); /* characters appeared in the text */
+                writeint(CSA_K, C[i], fp); /* frequency of characters */
+            }
+        }
+    }
+    writeint(1, CSA_ID_SA, fp);
+    writeint(1, CSA_K, fp);
+    writeint(CSA_K, CSA_D, fp);
+    writeint(CSA_K, len, fp);
+    for (i = 0, j = CSA_D - 1; i < len / CSA_D; i++, j += CSA_D)
+    {
+        writeint(CSA_K, SA[j], fp);
+    }
+    writeint(1, CSA_ID_ISA, fp);
+    writeint(1, CSA_K, fp);
+    writeint(CSA_K, CSA_D2, fp);
+    for (i = 0; i < len; i++)
+    {
+        ISA[SA[i]] = i + 1;
+    }
+    for (i = 0, j = 0; i <= (len - 1) / CSA_D2; i++, j += CSA_D2)
+    {
+        writeint(CSA_K, ISA[j], fp);
+    }
     fclose(fp);
+    TOCK;
+    fprintf(stderr, "Constructing BWT ... ");
+    TICK;
+    if (bw_transform(T, U, SA, len, &last) != 0)
+    {
+        fprintf(stderr, "BWT failed\n");
+        CLEAN_UP;
+        return FAIL_RET;
+    }
+    TOCK;
     sprintf(ofname, "%.*s.bw", baselen, base);
     CHECK_OPEN_FILE(fp, ofname, "wb");
+    fprintf(stderr, "Writing %s ... ", ofname);
+    TICK;
+    if (fwrite(U, sizeof(sauchar_t), len, fp) != len)
+    {
+        perror("write failed");
+        fclose(fp);
+        CLEAN_UP;
+        return FAIL_RET;
+    }
     fclose(fp);
+    TOCK;
     sprintf(ofname, "%.*s.lst", baselen, base);
     CHECK_OPEN_FILE(fp, ofname, "w");
+    fprintf(stderr, "Writing %s ... ", ofname);
+    TICK;
+    if (fprintf(fp, "%lu", (long) last) < 0)
+    {
+        perror("print failed");
+        fclose(fp);
+        CLEAN_UP;
+        return FAIL_RET;
+    }
     fclose(fp);
+    TOCK;
     free(ofname);
     return 0;
 }
