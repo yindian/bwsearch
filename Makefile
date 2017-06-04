@@ -10,7 +10,7 @@ else
 CFLAGS += -g
 endif
 
-CC_V := $(shell LANG=C $(CC) -v 2>&1 | tr '\n\\\\' '|/' | tr -d '\r')
+CC_V := $(shell LANG=C $(CC) -v 2>&1)
 
 libdivsufsort_EXAMPLES = bwt mksary sasearch suftest unbwt
 libdivsufsort_TARGETS = libdivsufsort.a $(libdivsufsort_EXAMPLES)
@@ -45,7 +45,7 @@ SED = gsed
 endif
 SED ?= sed
 
-BHOST := $(shell echo "$(CC_V)" | tr '|' '\n' | $(SED) -n '/^Target: /{s/^.*: //;p}')
+BHOST := $(shell LANG=C $(CC) -v 2>&1 | $(SED) -n '/^Target: /{s/^.*: //;p}')
 ifeq ($(BHOST),)
 $(error Unrecognized compiler)
 endif
