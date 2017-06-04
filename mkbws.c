@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 #include "sawrapper.h"
+#define MAX_FILE_LEN (1UL << 31)
 int main(int argc, char *argv[])
 {
     FILE *fp;
@@ -11,6 +13,7 @@ int main(int argc, char *argv[])
     off_t len;
     sauchar_t *T;
     saidx_t *SA;
+    clock_t start, finish;
     if (argc<2|| argc>3|| !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
     {
         printf("Usage: %s input_filename [output_file_basename]\n",
@@ -56,15 +59,20 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     len = ftello(fp);
-    if (len <= 0)
+    if (len <= 0 || len > MAX_FILE_LEN)
     {
         if (len < 0)
         {
             perror("tell failed");
         }
-        else
+        else if (len == 0)
         {
             fprintf(stderr, "empty file\n");
+        }
+        else
+        {
+            fprintf(stderr, "file too large: %" PRId64 " > %lu bytes\n",
+                    (int64_t) len, MAX_FILE_LEN);
         }
         CLEAN_UP;
         return FAIL_RET;
@@ -78,6 +86,7 @@ int main(int argc, char *argv[])
         CLEAN_UP;
         return FAIL_RET;
     }
+    fprintf(stderr, "Reading %s (%ld bytes) ...\n", argv[1], (long) len);
     if (fread(T, sizeof(sauchar_t), len, fp) != len)
     {
         perror("read failed");
@@ -85,6 +94,16 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     fclose(fp);
+    fprintf(stderr, "Sorting suffix array ... ");
+    start = clock();
+    if (divsufsort(T, SA, len) != 0)
+    {
+        fprintf(stderr, "sort failed\n");
+        CLEAN_UP;
+        return FAIL_RET;
+    }
+    finish = clock();
+    fprintf(stderr, "%.4f sec\n", (double)(finish - start) / CLOCKS_PER_SEC);
     ofname = (char *) malloc(baselen + 5);
 #undef CLEAN_UP
 #define CLEAN_UP free(ofname)
