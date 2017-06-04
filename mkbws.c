@@ -2,12 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#ifndef COMPILE_TEST
-#include "divsufsort.h"
-#else
-typedef unsigned char sauchar_t;
-typedef int saidx_t;
-#endif
+#include "sawrapper.h"
 int main(int argc, char *argv[])
 {
     FILE *fp;

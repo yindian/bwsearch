@@ -1,5 +1,7 @@
 TARGETS = $(addprefix $(BIN_DIR)/,$(libdivsufsort_TARGETS))
 GENERATED = $(libdivsufsort_GEN_HDR)
+SRC = $(libdivsufsort_SOURCES)
+
 CFLAGS = -Wall
 LDFLAGS =
 ifeq ($(DEBUG),)
@@ -21,6 +23,7 @@ libdivsufsort_SOURCES = $(filter-out %.a, $(libdivsufsort_a_SRC) $(foreach prog,
 libdivsufsort_GEN_HDR = divsufsort.h lfs.h
 
 TARGETS += $(addprefix $(BIN_DIR)/,$(bwsearch_TARGETS))
+SRC += $(bwsearch_TARGETS:%=%.c)
 bwsearch_TARGETS = mkbws unbws bws
 bwsearch_CFLAGS = -ansi -pedantic -D_FILE_OFFSET_BITS=64
 bwsearch_CFLAGS += -g
@@ -75,10 +78,10 @@ $(filter-out %.a,$(TARGETS)):
 	@mkdir -p $(@D)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-SRC = $(libdivsufsort_SOURCES)
 DEP = $(addprefix $(DEP_DIR)/,$(SRC:.c=.d))
 findsrc = $(if $(filter $1,$(SRC)),$1,$(notdir $1))
 src2tgt = $(addprefix $(OBJ_DIR)/,$(patsubst %.c,%.o,$(call findsrc,$1)))
+src2tgt += $(addprefix $(OBJ_DIR)/,$(patsubst %.c,%.obj,$(call findsrc,$1)))
 $(DEP_DIR)/%.d: %.c
 	@mkdir -p $(@D)
 	@$(CC) -MM $(CFLAGS) $< | $(SED) -n "H;$$ {g;s@.*:\(.*\)@$< := \$$\(wildcard\1\)\n$(call src2tgt,$<) $@: $$\($<\)@; p}" > $@
@@ -88,3 +91,12 @@ endif
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $(CFLAGS) $<
+
+ifneq ($(shell which cl 2>/dev/null),)
+.PHONY: compile_test
+all: compile_test
+compile_test: $(addprefix $(OBJ_DIR)/,$(addsuffix .obj,$(bwsearch_TARGETS)))
+$(OBJ_DIR)/%.obj: %.c
+	@mkdir -p $(@D)
+	cl -nologo -c -Fo$@ -DCOMPILE_TEST $<
+endif

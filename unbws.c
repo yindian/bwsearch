@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "divsufsort.h"
+#include "sawrapper.h"
 int main(int argc, char *argv[])
 {
     return 0;
