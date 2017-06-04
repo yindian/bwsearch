@@ -25,7 +25,6 @@ int main(int argc, char *argv[])
     off_t len;
     sauchar_t *T;
     saidx_t *SA;
-    sauchar_t *U;
     saidx_t *ISA;
     saidx_t last;
     clock_t start, finish;
@@ -96,9 +95,8 @@ int main(int argc, char *argv[])
     rewind(fp);
     T = (sauchar_t *) malloc(len * sizeof(sauchar_t));
     SA = (saidx_t *) malloc(len * sizeof(saidx_t));
-    U = (sauchar_t *) malloc(len * sizeof(sauchar_t));
-    ISA = (saidx_t *) malloc(len * sizeof(saidx_t));
-    if (!T || !SA || !U || !ISA)
+    ISA = (saidx_t *) malloc(((len - 1) / CSA_D2 + 1) * sizeof(saidx_t));
+    if (!T || !SA || !ISA)
     {
         fprintf(stderr, "malloc failed\n");
         CLEAN_UP;
@@ -184,17 +182,20 @@ int main(int argc, char *argv[])
     writeint(CSA_K, CSA_D2, fp);
     for (i = 0; i < len; i++)
     {
-        ISA[SA[i]] = i + 1;
+        if (SA[i] % CSA_D2 == 0)
+        {
+            ISA[SA[i] / CSA_D2] = i + 1;
+        }
     }
     for (i = 0, j = 0; i <= (len - 1) / CSA_D2; i++, j += CSA_D2)
     {
-        writeint(CSA_K, ISA[j], fp);
+        writeint(CSA_K, ISA[i], fp);
     }
     fclose(fp);
     TOCK;
     fprintf(stderr, "Constructing BWT ... ");
     TICK;
-    if (bw_transform(T, U, SA, len, &last) != 0)
+    if (bw_transform(T, T, SA, len, &last) != 0)
     {
         fprintf(stderr, "BWT failed\n");
         CLEAN_UP;
@@ -205,7 +206,7 @@ int main(int argc, char *argv[])
     CHECK_OPEN_FILE(fp, ofname, "wb");
     fprintf(stderr, "Writing %s ... ", ofname);
     TICK;
-    if (fwrite(U, sizeof(sauchar_t), len, fp) != len)
+    if (fwrite(T, sizeof(sauchar_t), len, fp) != len)
     {
         perror("write failed");
         fclose(fp);
