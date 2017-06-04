@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     if (argc > 2)
     {
         base = argv[2];
-        baselen = strlen(base);
+        baselen = (int) strlen(base);
     }
     else
     {
@@ -33,11 +33,11 @@ int main(int argc, char *argv[])
         if ((dot = strrchr(base, '.')) &&
             !strchr(dot, '/') && !strchr(dot, '\\'))
         {
-            baselen = dot - base;
+            baselen = (int) (dot - base);
         }
         else
         {
-            baselen = strlen(base);
+            baselen = (int) strlen(base);
         }
     }
 #define CLEAN_UP

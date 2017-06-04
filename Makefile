@@ -98,5 +98,5 @@ all: compile_test
 compile_test: $(addprefix $(OBJ_DIR)/,$(addsuffix .obj,$(bwsearch_TARGETS)))
 $(OBJ_DIR)/%.obj: %.c
 	@mkdir -p $(@D)
-	cl -nologo -c -Fo$@ -DCOMPILE_TEST $<
+	cl -nologo -c -Fo$@ -W3 -D_CRT_SECURE_NO_WARNINGS -DCOMPILE_TEST $<
 endif
