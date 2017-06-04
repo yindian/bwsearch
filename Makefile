@@ -10,11 +10,15 @@ else
 CFLAGS += -g
 endif
 
+CC_V := $(shell LANG=C $(CC) -v 2>&1 | tr '\n\\\\' '|/' | tr -d '\r')
+
 libdivsufsort_EXAMPLES = bwt mksary sasearch suftest unbwt
 libdivsufsort_TARGETS = libdivsufsort.a $(libdivsufsort_EXAMPLES)
 libdivsufsort_CFLAGS = -fomit-frame-pointer -D__STRICT_ANSI__ -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -Ilibdivsufsort/include -I.
+ifneq ($(findstring --enable-libgomp,$(CC_V)),)
 libdivsufsort_CFLAGS += -fopenmp
 libdivsufsort_LDFLAGS += -fopenmp
+endif
 libdivsufsort_CFLAGS += $(addprefix -D,HAVE_STDDEF_H HAVE_STDLIB_H HAVE_STRING_H HAVE_STRINGS_H HAVE_MEMORY_H HAVE_SYS_TYPES_H INLINE=inline PROJECT_VERSION_FULL=\"\")
 divsufsort_SRCS = divsufsort.c sssort.c trsort.c utils.c
 libdivsufsort_a_SRC = $(addprefix libdivsufsort/lib/, $(divsufsort_SRCS))
@@ -41,7 +45,7 @@ SED = gsed
 endif
 SED ?= sed
 
-BHOST := $(shell LANG=C $(CC) -v 2>&1 | $(SED) -n '/^Target: /{s/^.*: //;p}')
+BHOST := $(shell echo "$(CC_V)" | tr '|' '\n' | $(SED) -n '/^Target: /{s/^.*: //;p}')
 ifeq ($(BHOST),)
 $(error Unrecognized compiler)
 endif
@@ -49,6 +53,7 @@ ifeq ($(findstring mingw,$(BHOST)),)
 DOT_EXE =
 else
 DOT_EXE = .exe
+bwsearch_CFLAGS += -Wno-format #pedantic-ms-
 ORIG_TARGETS := $(TARGETS)
 TARGETS = $(addsuffix $(DOT_EXE),$(filter-out %.a,$(ORIG_TARGETS))) $(filter %.a,$(ORIG_TARGETS))
 endif
