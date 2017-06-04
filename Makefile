@@ -22,7 +22,8 @@ libdivsufsort_GEN_HDR = divsufsort.h lfs.h
 
 TARGETS += $(addprefix $(BIN_DIR)/,$(bwsearch_TARGETS))
 bwsearch_TARGETS = mkbws unbws bws
-bwsearch_CFLAGS = -ansi -pedantic
+bwsearch_CFLAGS = -ansi -pedantic -D_FILE_OFFSET_BITS=64
+bwsearch_CFLAGS += -g
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c libdivsufsort.a
 bws_SRC = bws.c
