@@ -16,12 +16,8 @@ libdivsufsort_LDFLAGS += -fopenmp
 libdivsufsort_CFLAGS += $(addprefix -D,HAVE_STDDEF_H HAVE_STDLIB_H HAVE_STRING_H HAVE_STRINGS_H HAVE_MEMORY_H HAVE_SYS_TYPES_H INLINE=inline PROJECT_VERSION_FULL=\"\")
 divsufsort_SRCS = divsufsort.c sssort.c trsort.c utils.c
 libdivsufsort_a_SRC = $(addprefix libdivsufsort/lib/, $(divsufsort_SRCS))
-bwt_SRC = libdivsufsort/examples/bwt.c libdivsufsort.a
-mksary_SRC = libdivsufsort/examples/mksary.c libdivsufsort.a
-sasearch_SRC = libdivsufsort/examples/sasearch.c libdivsufsort.a
-suftest_SRC = libdivsufsort/examples/suftest.c libdivsufsort.a
-unbwt_SRC = libdivsufsort/examples/unbwt.c libdivsufsort.a
-libdivsufsort_SOURCES = $(filter-out %.a, $(libdivsufsort_a_SRC) $(bwt_SRC) $(mksary_SRC) $(sasearch_SRC) $(suftest_SRC) $(unbwt_SRC))
+$(foreach prog,$(libdivsufsort_EXAMPLES),$(eval $(prog)_SRC = libdivsufsort/examples/$(prog).c libdivsufsort.a))
+libdivsufsort_SOURCES = $(filter-out %.a, $(libdivsufsort_a_SRC) $(foreach prog,$(libdivsufsort_EXAMPLES),$(value $(prog)_SRC)))
 libdivsufsort_GEN_HDR = divsufsort.h lfs.h
 
 TARGETS += $(addprefix $(BIN_DIR)/,$(bwsearch_TARGETS))
@@ -29,7 +25,7 @@ bwsearch_TARGETS = mkbws unbws bws
 bwsearch_CFLAGS = -ansi -pedantic
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c libdivsufsort.a
-bws_SRC = bws.c libdivsufsort.a
+bws_SRC = bws.c
 
 DEP_DIR = deps
 OBJ_DIR = objs
@@ -70,19 +66,10 @@ $(BIN_DIR)/libdivsufsort.a: $(call src2obj, $(libdivsufsort_a_SRC))
 	$(AR) $(ARFLAGS) $@ $^
 
 $(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(libdivsufsort_EXAMPLES))): CFLAGS += $(libdivsufsort_CFLAGS)
-$(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(libdivsufsort_EXAMPLES))): LDFLAGS += $(libdivsufsort_LDFLAGS)
-$(BIN_DIR)/bwt$(DOT_EXE): $(call src2obj, $(bwt_SRC))
-$(BIN_DIR)/mksary$(DOT_EXE): $(call src2obj, $(mksary_SRC))
-$(BIN_DIR)/sasearch$(DOT_EXE): $(call src2obj, $(sasearch_SRC))
-$(BIN_DIR)/suftest$(DOT_EXE): $(call src2obj, $(suftest_SRC))
-$(BIN_DIR)/unbwt$(DOT_EXE): $(call src2obj, $(unbwt_SRC))
-
 $(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(bwsearch_TARGETS))): CFLAGS += $(bwsearch_CFLAGS)
-$(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(bwsearch_TARGETS))): LDFLAGS += $(libdivsufsort_LDFLAGS)
-$(BIN_DIR)/mkbws$(DOT_EXE): $(call src2obj, $(mkbws_SRC))
-$(BIN_DIR)/unbws$(DOT_EXE): $(call src2obj, $(unbws_SRC))
-$(BIN_DIR)/bws$(DOT_EXE): $(call src2obj, $(bws_SRC))
 
+$(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter libdivsufsort.a,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(libdivsufsort_LDFLAGS)
+$(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(eval $(BIN_DIR)/$(prog)$(DOT_EXE): $(call src2obj, $(value $(prog)_SRC))))
 $(filter-out %.a,$(TARGETS)):
 	@mkdir -p $(@D)
 	$(CC) -o $@ $^ $(LDFLAGS)
