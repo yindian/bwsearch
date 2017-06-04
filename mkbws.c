@@ -9,8 +9,7 @@
 
 static void writeint(int k, int64_t x, FILE *fp)
 {
-    int i;
-    for (i=k-1; i>=0; i--)
+    while (k-- > 0)
     {
         fputc(x & 0xff, fp);
         x >>= 8;
