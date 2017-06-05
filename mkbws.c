@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 #undef CLEAN_UP
 #define CLEAN_UP do\
     {\
+        fclose(fp);\
         free(ISA);\
         free(SA);\
         free(T);\
@@ -127,6 +128,13 @@ int main(int argc, char *argv[])
     }
     fclose(fp);
     TOCK;
+#undef CLEAN_UP
+#define CLEAN_UP do\
+    {\
+        free(ISA);\
+        free(SA);\
+        free(T);\
+    } while (0)
     fprintf(stderr, "Sorting suffix array ... ");
     TICK;
     if (divsufsort(T, SA, len) != 0)
@@ -137,6 +145,12 @@ int main(int argc, char *argv[])
     }
     TOCK;
     ofname = (char *) malloc(baselen + 5);
+    if (!ofname)
+    {
+        fprintf(stderr, "malloc failed\n");
+        CLEAN_UP;
+        return FAIL_RET;
+    }
 #undef CLEAN_UP
 #define CLEAN_UP do\
     {\
