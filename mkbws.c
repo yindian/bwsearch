@@ -111,6 +111,13 @@ int main(int argc, char *argv[])
     finish = clock(); \
     fprintf(stderr, "%.4f sec\n", (double)(finish - start) / CLOCKS_PER_SEC);\
     } while (0)
+#undef CLEAN_UP
+#define CLEAN_UP do\
+    {\
+        free(ISA);\
+        free(SA);\
+        free(T);\
+    } while (0)
     TICK;
     if (fread(T, sizeof(sauchar_t), len, fp) != len)
     {
@@ -131,7 +138,13 @@ int main(int argc, char *argv[])
     TOCK;
     ofname = (char *) malloc(baselen + 5);
 #undef CLEAN_UP
-#define CLEAN_UP free(ofname)
+#define CLEAN_UP do\
+    {\
+        free(ofname);\
+        free(ISA);\
+        free(SA);\
+        free(T);\
+    } while (0)
 #undef FAIL_RET
 #define FAIL_RET 2
     sprintf(ofname, "%.*s.idx", baselen, base);
@@ -228,6 +241,9 @@ int main(int argc, char *argv[])
     fclose(fp);
     TOCK;
     free(ofname);
+    free(ISA);
+    free(SA);
+    free(T);
     return 0;
 }
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
