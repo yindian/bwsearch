@@ -1,5 +1,7 @@
+#ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,7 +69,8 @@ int main(int argc, char *argv[])
     } while (0)
     sprintf(ifname, "%.*s.lst", baselen, base);
     CHECK_OPEN_FILE(fp, ifname, "r");
-    if (fscanf(fp, "%lu", &last) != 1)
+    last = 0;
+    if (fscanf(fp, "%lu", (unsigned long *)&last) != 1)
     {
         perror("scanf failed");
         fclose(fp);
