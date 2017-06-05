@@ -2,10 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <time.h>
+#include "bwscommon.h"
 #include "csacompat.h"
 #include "sawrapper.h"
-#define MAX_FILE_LEN (1UL << 31)
 
 static void writeint(int k, int64_t x, FILE *fp)
 {
@@ -26,7 +25,6 @@ int main(int argc, char *argv[])
     saidx_t *SA;
     saidx_t *ISA;
     saidx_t last;
-    clock_t start, finish;
     int i, j;
     if (argc<2|| argc>3|| !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
     {
@@ -53,15 +51,6 @@ int main(int argc, char *argv[])
         {
             baselen = (int) strlen(base);
         }
-    }
-#define CLEAN_UP
-#define FAIL_RET 1
-#define CHECK_OPEN_FILE(_fp, _name, _mode) \
-    if (!(_fp = fopen(_name, _mode)))\
-    {\
-        fprintf(stderr, "Failed to open %s\n", _name);\
-        CLEAN_UP;\
-        return FAIL_RET;\
     }
     CHECK_OPEN_FILE(fp, argv[1], "rb");
 #undef CLEAN_UP
@@ -102,15 +91,6 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     fprintf(stderr, "Reading %s (%lu bytes) ... ", argv[1], (long) len);
-#define TICK do\
-    {\
-    start = clock();\
-    } while (0)
-#define TOCK do\
-    {\
-    finish = clock(); \
-    fprintf(stderr, "%.4f sec\n", (double)(finish - start) / CLOCKS_PER_SEC);\
-    } while (0)
 #undef CLEAN_UP
 #define CLEAN_UP do\
     {\
