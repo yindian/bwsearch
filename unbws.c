@@ -10,6 +10,100 @@
 #include "csacompat.h"
 #include "sawrapper.h"
 
+static int64_t readint(int k, FILE *f)
+{
+    int64_t x;
+    int i;
+    x = 0;
+    for (i = 0; i < k; i++)
+    {
+        x += (int64_t) fgetc(f) << (8*i);
+    }
+    return x;
+}
+
+/* Binary search for inverse bwt. */
+static
+saidx_t
+binarysearch_lower(const saidx_t *A, saidx_t size, saidx_t value) {
+  saidx_t half, i;
+  for(i = 0, half = size >> 1;
+      0 < size;
+      size = half, half >>= 1) {
+    if(A[i + half] < value) {
+      i += half + 1;
+      half -= (size & 1) ^ 1;
+    }
+  }
+  return i;
+}
+
+static saint_t
+my_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
+                     saidx_t n, saidx_t idx,
+                     saidx_t *ISA, saidx_t *C, sauchar_t *D, saidx_t d) {
+  saidx_t *B;
+  saidx_t i, j, p;
+  saint_t c;
+
+  /* Check arguments. */
+  if((T == NULL) || (U == NULL) || (n < 0) || (idx < 0) ||
+     (n < idx) || ((0 < n) && (idx == 0))) {
+    return -1;
+  }
+  if((ISA == NULL) || (C == NULL) || (D == NULL) || (d < 0) || (d > CSA_SIGMA))
+  {
+      return -3;
+  }
+  if(n <= 1) { return 0; }
+
+  if((B = A) == NULL) {
+    /* Allocate n*sizeof(saidx_t) bytes of memory. */
+    if((B = (saidx_t *)malloc((size_t)n * sizeof(saidx_t))) == NULL) { return -2; }
+  }
+
+  TOCK;
+  fprintf(stderr, "%s:%d ", __FILE__, __LINE__);
+  TICK;
+  /* Inverse BW transform. */
+  for(c = 0, i = 0; c < CSA_SIGMA; ++c) {
+    p = C[c];
+    if(0 < p) {
+      C[c] = i;
+      i += p;
+    }
+  }
+  TOCK;
+  fprintf(stderr, "%s:%d ", __FILE__, __LINE__);
+  TICK;
+  for(i = 0; i < idx; ++i) { B[C[T[i]]++] = i; }
+  for( ; i < n; ++i)       { B[C[T[i]]++] = i + 1; }
+  for(c = 0; c < d; ++c) { C[c] = C[D[c]]; }
+  TOCK;
+  fprintf(stderr, "%s:%d ", __FILE__, __LINE__);
+  TICK;
+  /*
+   * F[i] = T[SA[i]] => T[i] = F[ISA[i]]
+   * LF[i] = ISA[SA[i] - 1] => FL[i] = ISA[SA[i] + 1]
+   * T[i + 1] = F[FL[ISA[i]]]
+   */
+  for (j = 0; j <= (n - 1) / CSA_D2; ++j)
+  {
+      for (i = j * CSA_D2, p = ISA[j]; i < n && i < (j + 1) * CSA_D2; ++i)
+      {
+          U[i] = D[binarysearch_lower(C, d, p)];
+          p = B[p - 1];
+      }
+  }
+
+  if(A == NULL) {
+    /* Deallocate memory. */
+    free(B);
+  }
+
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
     FILE *fp;
@@ -18,7 +112,11 @@ int main(int argc, char *argv[])
     off_t len;
     sauchar_t *T;
     saidx_t *SA;
+    saidx_t *ISA;
     saidx_t last;
+    saidx_t C[CSA_SIGMA];
+    sauchar_t D[CSA_SIGMA];
+    int m;
     int ret;
     if (argc<2|| argc>3|| !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
     {
@@ -117,9 +215,84 @@ int main(int argc, char *argv[])
     }
     fclose(fp);
     TOCK;
+    sprintf(ifname, "%.*s.idx", baselen, base);
+    fp = fopen(ifname, "rb");
+    if (fp)
+    {
+        int err = 0;
+        fprintf(stderr, "Loading index ... ");
+        TICK;
+        ISA = (saidx_t *) malloc(((len - 1) / CSA_D2 + 1) * sizeof(saidx_t));
+        if (!ISA)
+        {
+            perror("malloc failed");
+            fclose(fp);
+            CLEAN_UP;
+            return FAIL_RET;
+        }
+#undef CLEAN_UP
+#define CLEAN_UP do\
+    {\
+        if (ISA) free (ISA);\
+        free(SA);\
+        free(T);\
+        free(ifname);\
+    } while (0)
+#define CHECK_COND(_cond) \
+        {\
+            if (!(_cond) || ferror(fp))\
+            {\
+                err = __LINE__;\
+                break;\
+            }\
+        }
+        do
+        {
+            int i;
+            CHECK_COND(readint(4, fp) == CSA_VERSION);
+            CHECK_COND(readint(1, fp) == CSA_ID_HEADER);
+            CHECK_COND(readint(1, fp) == CSA_K);
+            CHECK_COND(readint(CSA_K, fp) == len);
+            CHECK_COND(readint(CSA_K, fp) == CSA_D);
+            CHECK_COND(readint(CSA_K, fp) == CSA_D2);
+            CHECK_COND(readint(CSA_K, fp) == CSA_SIGMA);
+            memset(C, 0, sizeof(C));
+            memset(D, 0, sizeof(D));
+            CHECK_COND((m = (int) readint(CSA_K, fp)) >= 0);
+            for (i = 0; i < m; i++)
+            {
+                CHECK_COND((D[i] = (sauchar_t) readint(1, fp)) >= 0);
+                CHECK_COND((C[D[i]] = (saidx_t) readint(CSA_K, fp)) > 0);
+            }
+            CHECK_COND(readint(1, fp) == CSA_ID_SA);
+            CHECK_COND(readint(1, fp) == CSA_K);
+            CHECK_COND(readint(CSA_K, fp) == CSA_D);
+            fseeko(fp, (len / CSA_D + 1) * CSA_K, SEEK_CUR);
+            CHECK_COND(readint(1, fp) == CSA_ID_ISA);
+            CHECK_COND(readint(1, fp) == CSA_K);
+            CHECK_COND(readint(CSA_K, fp) == CSA_D2);
+            for (i = 0; i <= (len - 1) / CSA_D2; i++)
+            {
+                CHECK_COND((ISA[i] = (saidx_t) readint(CSA_K, fp)) > 0);
+            }
+        } while (0);
+        fclose(fp);
+        if (err)
+        {
+            fprintf(stderr, "failed %d\n", err);
+            CLEAN_UP;
+            return FAIL_RET;
+        }
+        TOCK;
+    }
+    else
+    {
+        ISA = NULL;
+    }
     fprintf(stderr, "Computing Inverse BWT ... ");
     TICK;
-    if (inverse_bw_transform(T, T, SA, len, last) != 0)
+    if ((ISA ? my_inverse_bw_transform(T, T, SA, len, last, ISA, C, D, m)
+         : inverse_bw_transform(T, T, SA, len, last)) != 0)
     {
         fprintf(stderr, "IBWT failed\n");
         CLEAN_UP;
