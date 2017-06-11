@@ -72,6 +72,7 @@ struct _csaidx_t {
     saidx_t d;
     saidx_t d2;
     saidx_t n;
+    unsigned int k;
     unsigned int s;
     int m;
 };
