@@ -34,7 +34,7 @@ bwsearch_CFLAGS += -g
 ifneq ($(findstring --enable-libgomp,$(CC_V)),)
 bwsearch_CFLAGS += -fopenmp
 endif
-bwsearch_SOURCES = $(bwsearch_TARGETS:%=%.c)
+bwsearch_SOURCES = $(filter-out %.a, $(foreach prog,$(bwsearch_TARGETS),$(value $(prog)_SRC)))
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c libdivsufsort.a
 bws_SRC = bws.c

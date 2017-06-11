@@ -9,9 +9,6 @@
 #include "bwscommon.h"
 #include "csacompat.h"
 #include "sawrapper.h"
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 static int64_t readint(int k, FILE *f)
 {
