@@ -75,11 +75,6 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
     if((B = (saidx_t *)malloc((size_t)n * sizeof(saidx_t))) == NULL) { return -2; }
   }
 
-#ifdef DEBUG
-  TOCK;
-  fprintf(stderr, "%s:%d ", __FILE__, __LINE__);
-  TICK;
-#endif
   /* Inverse BW transform. */
   for(c = 0, i = 0; c < pindex->s; ++c) {
     p = C[c];
@@ -88,19 +83,9 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
       i += p;
     }
   }
-#ifdef DEBUG
-  TOCK;
-  fprintf(stderr, "%s:%d ", __FILE__, __LINE__);
-  TICK;
-#endif
   for(i = 0; i < idx; ++i) { B[C[T[i]]++] = i; }
   for( ; i < n; ++i)       { B[C[T[i]]++] = i + 1; }
   for(c = 0; c < d; ++c) { C[c] = C[D[c]]; }
-#ifdef DEBUG
-  TOCK;
-  fprintf(stderr, "%s:%d ", __FILE__, __LINE__);
-  TICK;
-#endif
   /*
    * F[i] = T[SA[i]] => T[i] = F[ISA[i]]
    * LF[i] = ISA[SA[i] - 1] => FL[i] = ISA[SA[i] + 1]
