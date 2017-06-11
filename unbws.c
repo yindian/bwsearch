@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
     } while (0)
         err = bws_load_csa_index(&csa, BWS_FLAG_LOAD_ISA, fp);
         fclose(fp);
-        if (err)
+        if (err || csa.n != len)
         {
             fprintf(stderr, "failed %d\n", err);
             CLEAN_UP;
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Computing Inverse BWT ... ");
     TICK;
     if ((csa.ISA ? bws_inverse_bw_transform(T, T, SA, len, last,
-                                            csa.ISA, csa.C, csa.D, csa.m)
+                                            &csa)
          : inverse_bw_transform(T, T, SA, len, last)) != 0)
     {
         fprintf(stderr, "IBWT failed\n");

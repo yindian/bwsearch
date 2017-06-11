@@ -35,6 +35,8 @@
 #define BWS_FLAG_LOAD_SA    1
 #define BWS_FLAG_LOAD_ISA   2
 
+typedef struct _csaidx_t csaidx_t;
+
 /*
  * {======================================================================
  * for divsufsort compatibility
@@ -58,18 +60,21 @@ typedef int saidx_t;
 extern saint_t
 bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
                      saidx_t n, saidx_t idx,
-                     saidx_t *ISA, saidx_t *C, sauchar_t *D, saidx_t d);
+                     csaidx_t *pindex);
 
 /* }====================================================================== */
 
-typedef struct _csaidx_t {
+struct _csaidx_t {
     saidx_t C[CSA_SIGMA];
     sauchar_t D[CSA_SIGMA];
     saidx_t *SA;
     saidx_t *ISA;
+    saidx_t d;
+    saidx_t d2;
     saidx_t n;
+    unsigned int s;
     int m;
-} csaidx_t;
+};
 
 extern int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp);
 extern int bws_free_csa_index(csaidx_t *pindex);

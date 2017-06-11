@@ -42,17 +42,29 @@ binarysearch_lower(const saidx_t *A, saidx_t size, saidx_t value) {
 saint_t
 bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
                      saidx_t n, saidx_t idx,
-                     saidx_t *ISA, saidx_t *C, sauchar_t *D, saidx_t d) {
+                     csaidx_t *pindex) {
   saidx_t *B;
   saidx_t i, j, p;
   saint_t c;
+  saidx_t *ISA;
+  saidx_t *C;
+  sauchar_t *D;
+  saidx_t d;
 
   /* Check arguments. */
   if((T == NULL) || (U == NULL) || (n < 0) || (idx < 0) ||
      (n < idx) || ((0 < n) && (idx == 0))) {
     return -1;
   }
-  if((ISA == NULL) || (C == NULL) || (D == NULL) || (d < 0) || (d > CSA_SIGMA))
+  if (pindex == NULL)
+  {
+      return -3;
+  }
+  ISA = pindex->ISA;
+  C = pindex->C;
+  D = pindex->D;
+  d = pindex->m;
+  if((ISA == NULL) || (C == NULL) || (D == NULL) || (d < 0) || (d > pindex->s))
   {
       return -3;
   }
@@ -69,7 +81,7 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
   TICK;
 #endif
   /* Inverse BW transform. */
-  for(c = 0, i = 0; c < CSA_SIGMA; ++c) {
+  for(c = 0, i = 0; c < pindex->s; ++c) {
     p = C[c];
     if(0 < p) {
       C[c] = i;
@@ -97,14 +109,14 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
 #ifdef _OPENMP
 #pragma omp parallel for default(shared) private(i, j, p)
 #endif
-  for (j = 0; j <= (n - 1) / CSA_D2; ++j)
+  for (j = 0; j <= (n - 1) / pindex->d2; ++j)
   {
-      int k = (j + 1) * CSA_D2;
+      int k = (j + 1) * pindex->d2;
       if (n < k)
       {
           k = n;
       }
-      for (i = j * CSA_D2, p = ISA[j]; i < k; ++i)
+      for (i = j * pindex->d2, p = ISA[j]; i < k; ++i)
       {
           U[i] = D[binarysearch_lower(C, d, p)];
           p = B[p - 1];
@@ -145,9 +157,9 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == CSA_ID_HEADER);
         CHECK_COND(readint(1, fp) == CSA_K);
         CHECK_COND((pindex->n = readint(CSA_K, fp)) >= 0);
-        CHECK_COND(readint(CSA_K, fp) == CSA_D);
-        CHECK_COND(readint(CSA_K, fp) == CSA_D2);
-        CHECK_COND(readint(CSA_K, fp) == CSA_SIGMA);
+        CHECK_COND((pindex->d = readint(CSA_K, fp)) >= CSA_D);
+        CHECK_COND((pindex->d2 = readint(CSA_K, fp)) >= CSA_D2);
+        CHECK_COND((pindex->s = readint(CSA_K, fp)) <= CSA_SIGMA);
         memset(pindex->C, 0, sizeof(pindex->C));
         memset(pindex->D, 0, sizeof(pindex->D));
         CHECK_COND((pindex->m = (int) readint(CSA_K, fp)) >= 0);
@@ -159,17 +171,17 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         }
         CHECK_COND(readint(1, fp) == CSA_ID_SA);
         CHECK_COND(readint(1, fp) == CSA_K);
-        CHECK_COND(readint(CSA_K, fp) == CSA_D);
+        CHECK_COND(readint(CSA_K, fp) == pindex->d);
         if ((flags & BWS_FLAG_LOAD_SA))
         {
-            pindex->SA = (saidx_t *) malloc((pindex->n / CSA_D2 + 1)
+            pindex->SA = (saidx_t *) malloc((pindex->n / pindex->d + 1)
                                             * sizeof(saidx_t));
             if (!pindex->SA)
             {
                 perror("malloc failed");
                 return BWS_RET_MEM_ERR;
             }
-            for (i = 0; i <= pindex->n / CSA_D2; i++)
+            for (i = 0; i <= pindex->n / pindex->d; i++)
             {
                 CHECK_COND((pindex->SA[i] = (saidx_t) readint(CSA_K, fp)) > 0);
                 if (err)
@@ -180,21 +192,21 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         }
         else
         {
-            fseeko(fp, (pindex->n / CSA_D + 1) * CSA_K, SEEK_CUR);
+            fseeko(fp, (pindex->n / pindex->d + 1) * CSA_K, SEEK_CUR);
         }
         CHECK_COND(readint(1, fp) == CSA_ID_ISA);
         CHECK_COND(readint(1, fp) == CSA_K);
-        CHECK_COND(readint(CSA_K, fp) == CSA_D2);
+        CHECK_COND(readint(CSA_K, fp) == pindex->d2);
         if ((flags & BWS_FLAG_LOAD_ISA))
         {
-            pindex->ISA = (saidx_t *) malloc(((pindex->n - 1) / CSA_D2 + 1)
+            pindex->ISA = (saidx_t *) malloc(((pindex->n - 1) / pindex->d2 + 1)
                                              * sizeof(saidx_t));
             if (!pindex->ISA)
             {
                 perror("malloc failed");
                 return BWS_RET_MEM_ERR;
             }
-            for (i = 0; i <= (pindex->n - 1) / CSA_D2; i++)
+            for (i = 0; i <= (pindex->n - 1) / pindex->d2; i++)
             {
                 CHECK_COND((pindex->ISA[i] = (saidx_t) readint(CSA_K, fp)) > 0);
                 if (err)
