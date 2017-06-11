@@ -9,6 +9,9 @@
 #include "bwscommon.h"
 #include "csacompat.h"
 #include "sawrapper.h"
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 static int64_t readint(int k, FILE *f)
 {
@@ -87,9 +90,17 @@ my_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
    * LF[i] = ISA[SA[i] - 1] => FL[i] = ISA[SA[i] + 1]
    * T[i + 1] = F[FL[ISA[i]]]
    */
+#ifdef _OPENMP
+#pragma omp parallel for default(shared) private(i, j, p)
+#endif
   for (j = 0; j <= (n - 1) / CSA_D2; ++j)
   {
-      for (i = j * CSA_D2, p = ISA[j]; i < n && i < (j + 1) * CSA_D2; ++i)
+      int k = (j + 1) * CSA_D2;
+      if (n < k)
+      {
+          k = n;
+      }
+      for (i = j * CSA_D2, p = ISA[j]; i < k; ++i)
       {
           U[i] = D[binarysearch_lower(C, d, p)];
           p = B[p - 1];
