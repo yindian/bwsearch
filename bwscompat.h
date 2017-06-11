@@ -1,3 +1,7 @@
+/*
+ * See Copyright Notice in bwslib.h
+ */
+
 #ifndef _BWSCOMPAT_H
 #define _BWSCOMPAT_H
 

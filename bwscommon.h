@@ -1,3 +1,7 @@
+/*
+ * See Copyright Notice in bwslib.h
+ */
+
 #ifndef _BWSCOMMON_H
 #define _BWSCOMMON_H
 

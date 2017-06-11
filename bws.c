@@ -1,3 +1,7 @@
+/*
+ * See Copyright Notice in bwslib.h
+ */
+
 #include <stdio.h>
 int main(int argc, char *argv[])
 {

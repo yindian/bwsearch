@@ -1,3 +1,7 @@
+/*
+ * See Copyright Notice in bwslib.h
+ */
+
 #ifndef _CSACOMPAT_H
 #define _CSACOMPAT_H
 

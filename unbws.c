@@ -1,3 +1,7 @@
+/*
+ * See Copyright Notice in bwslib.h
+ */
+
 #ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>

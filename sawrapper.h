@@ -1,3 +1,7 @@
+/*
+ * See Copyright Notice in bwslib.h
+ */
+
 #ifndef _SAWRAPPER_H
 #define _SAWRAPPER_H
 
