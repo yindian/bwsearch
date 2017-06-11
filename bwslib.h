@@ -24,5 +24,55 @@
 #ifndef _BWSLIB_H
 #define _BWSLIB_H
 
+#include "csacompat.h"
+#include <stdio.h>
+
+#define BWS_RET_OK          0
+#define BWS_RET_INV_ARG     -1
+#define BWS_RET_MEM_ERR     -2
+#define BWS_RET_MALFORM     -3
+
+#define BWS_FLAG_LOAD_SA    1
+#define BWS_FLAG_LOAD_ISA   2
+
+/*
+ * {======================================================================
+ * for divsufsort compatibility
+ * =======================================================================
+ */
+
+/*- Datatypes -*/
+#ifndef SAUCHAR_T
+#define SAUCHAR_T
+typedef unsigned char sauchar_t;
+#endif /* SAUCHAR_T */
+#ifndef SAINT_T
+#define SAINT_T
+typedef int saint_t;
+#endif /* SAINT_T */
+#ifndef SAIDX_T
+#define SAIDX_T
+typedef int saidx_t;
+#endif /* SAIDX_T */
+
+extern saint_t
+bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
+                     saidx_t n, saidx_t idx,
+                     saidx_t *ISA, saidx_t *C, sauchar_t *D, saidx_t d);
+
+/* }====================================================================== */
+
+typedef struct _csaidx_t {
+    saidx_t C[CSA_SIGMA];
+    sauchar_t D[CSA_SIGMA];
+    saidx_t *SA;
+    saidx_t *ISA;
+    saidx_t n;
+    int m;
+} csaidx_t;
+
+extern int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp);
+extern int bws_free_csa_index(csaidx_t *pindex);
+
 #endif
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
