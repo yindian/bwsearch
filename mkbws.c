@@ -2,6 +2,7 @@
  * See Copyright Notice in bwslib.h
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,18 @@ static void writeint(int k, int64_t x, FILE *fp)
         fputc(x & 0xff, fp);
         x >>= 8;
     }
+    assert(x == 0 || x == -1);
+}
+
+static int count1(int64_t x)
+{
+    int l, n;
+    for (l = 64, n = 0; x && l; --l)
+    {
+        n += x & 1;
+        x >>= 1;
+    }
+    return n;
 }
 
 int main(int argc, char *argv[])
@@ -30,6 +43,8 @@ int main(int argc, char *argv[])
     saidx_t *ISA;
     saidx_t last;
     int i, j;
+    int m; /* the number of distinct characters in the text  */
+    sauchar_t AtoC[CSA_SIGMA];
     if (argc<2|| argc>3|| !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
     {
         printf("Usage: %s input_filename [output_file_basename]\n",
@@ -94,6 +109,13 @@ int main(int argc, char *argv[])
         CLEAN_UP;
         return FAIL_RET;
     }
+    assert(count1(-1) == 64);
+    assert(count1(CSA_D) == 1);
+    assert(count1(CSA_D2) == 1);
+    assert(count1(CSA_L) == 1);
+    assert(count1(CSA_LB) == 1);
+    assert(CSA_L < CSA_LB);
+    assert(CSA_LB <= (1 << 16));
     fprintf(stderr, "Reading %s (%lu bytes) ... ", argv[1], (long) len);
 #undef CLEAN_UP
 #define CLEAN_UP do\
@@ -158,8 +180,8 @@ int main(int argc, char *argv[])
     writeint(CSA_K, CSA_SIGMA, fp);
     {
         off_t C[CSA_SIGMA];
-        int m; /* the number of distinct characters in the text  */
         memset(C, 0, sizeof(C));
+        memset(AtoC, 0, sizeof(AtoC));
         for (i = 0; i < len; i++)
         {
             ++C[T[i]];
@@ -170,12 +192,14 @@ int main(int argc, char *argv[])
             m += !!C[i];
         }
         writeint(CSA_K, m, fp);
+        j = 0;
         for (i = 0; i < CSA_SIGMA; i++)
         {
             if (C[i])
             {
                 writeint(1, i, fp); /* characters appeared in the text */
                 writeint(CSA_K, C[i], fp); /* frequency of characters */
+                AtoC[j++] = i;
             }
         }
     }
@@ -235,6 +259,50 @@ int main(int argc, char *argv[])
         fclose(fp);
         CLEAN_UP;
         return FAIL_RET;
+    }
+    fclose(fp);
+    TOCK;
+    sprintf(ofname, "%.*s.bws", baselen, base);
+    CHECK_OPEN_FILE(fp, ofname, "wb");
+    fprintf(stderr, "Writing %s ... ", ofname);
+    TICK;
+    writeint(1, CSA_ID_LF, fp);
+    writeint(1, CSA_K, fp);
+    writeint(CSA_K, len, fp);
+    writeint(CSA_K, last, fp);
+    writeint(CSA_K, CSA_L, fp);
+    writeint(1, CSA_ID_BWS_IDX, fp);
+    writeint(CSA_K, m, fp);
+    {
+        off_t C[CSA_SIGMA];
+        off_t D[CSA_SIGMA];
+        memset(C, 0, sizeof(C));
+        for (i = 0; i < len; i += CSA_LB)
+        {
+            int k, n;
+            for (k = 0; k < CSA_LB; k += CSA_L)
+            {
+                n = k + CSA_L;
+                if (len < n)
+                {
+                    n = len;
+                }
+                memset(D, 0, sizeof(D));
+                for (j = k; j < n; j++)
+                {
+                    ++D[T[j]];
+                }
+                for (j = 0; j < m; j++)
+                {
+                    writeint(2, D[AtoC[j]], fp);
+                    C[j] += D[AtoC[j]];
+                }
+            }
+            for (j = 0; j < m; j++)
+            {
+                writeint(CSA_K, C[j], fp);
+            }
+        }
     }
     fclose(fp);
     TOCK;
