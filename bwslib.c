@@ -220,10 +220,12 @@ int bws_free_csa_index(csaidx_t *pindex)
     if (pindex->SA)
     {
         free(pindex->SA);
+        pindex->SA = NULL;
     }
     if (pindex->ISA)
     {
         free(pindex->ISA);
+        pindex->ISA = NULL;
     }
     return BWS_RET_OK;
 }

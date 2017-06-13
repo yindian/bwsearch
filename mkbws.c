@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     assert(count1(CSA_D2) == 1);
     assert(count1(CSA_L) == 1);
     assert(count1(CSA_LB) == 1);
-    assert(CSA_L < CSA_LB);
+    assert(CSA_L <= CSA_LB);
     assert(CSA_LB <= (1 << 16));
     fprintf(stderr, "Reading %s (%lu bytes) ... ", argv[1], (long) len);
 #undef CLEAN_UP
@@ -272,23 +272,42 @@ int main(int argc, char *argv[])
     writeint(CSA_K, last, fp);
     writeint(CSA_K, CSA_L, fp);
     writeint(1, CSA_ID_BWS_IDX, fp);
+    writeint(1, CSA_ID_BWS_IDX, fp);
     writeint(CSA_K, m, fp);
     {
         off_t C[CSA_SIGMA];
         off_t D[CSA_SIGMA];
         memset(C, 0, sizeof(C));
-        for (i = 0; i < len; i += CSA_LB)
+        for (i = 0; i <= len; i += CSA_LB)
         {
             int k, n;
             for (k = 0; k < CSA_LB; k += CSA_L)
             {
-                n = k + CSA_L;
-                if (len < n)
+                if (i + k > len)
                 {
-                    n = len;
+                    break;
+                }
+                n = i + k + CSA_L;
+                if (len + 1 < n)
+                {
+                    n = len + 1;
                 }
                 memset(D, 0, sizeof(D));
-                for (j = k; j < n; j++)
+                if (n <= last)
+                {
+                    j = i + k;
+                }
+                else if (i + k > last)
+                {
+                    --n;
+                    j = i + k - 1;
+                }
+                else
+                {
+                    --n;
+                    j = i + k;
+                }
+                for (; j < n; j++)
                 {
                     ++D[T[j]];
                 }
