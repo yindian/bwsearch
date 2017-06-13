@@ -15,7 +15,7 @@ CC_V := $(shell LANG=C $(CC) -v 2>&1)
 libdivsufsort_EXAMPLES = bwt mksary sasearch suftest unbwt
 libdivsufsort_TARGETS = libdivsufsort.a $(libdivsufsort_EXAMPLES)
 libdivsufsort_CFLAGS = -fomit-frame-pointer -D__STRICT_ANSI__ -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -Ilibdivsufsort/include -I.
-ifneq ($(findstring --enable-libgomp,$(CC_V)),)
+ifneq ($(findstring --enable-libgomp,$(CC_V))$(findstring --enable-gnu,$(CC_V)),)
 libdivsufsort_CFLAGS += -fopenmp
 libdivsufsort_LDFLAGS += -fopenmp
 endif
@@ -31,7 +31,7 @@ SRC += $(bwsearch_SOURCES)
 bwsearch_TARGETS = mkbws unbws bws
 bwsearch_CFLAGS = -ansi -pedantic -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 bwsearch_CFLAGS += -g
-ifneq ($(findstring --enable-libgomp,$(CC_V)),)
+ifneq ($(findstring --enable-libgomp,$(CC_V))$(findstring --enable-gnu,$(CC_V)),)
 bwsearch_CFLAGS += -fopenmp
 endif
 bwsearch_SOURCES = $(filter-out %.a, $(foreach prog,$(bwsearch_TARGETS),$(value $(prog)_SRC)))
@@ -74,6 +74,7 @@ $(libdivsufsort_GEN_HDR): %.h: libdivsufsort/include/%.h.cmake Makefile
 	$(SED) 's/@INCFILE@/#include <inttypes.h>/g;s/@INLINE@/inline/g;s/@SAUCHAR_TYPE@/uint8_t/g;s/@SAINT32_TYPE@/int32_t/g;s/@SAINT32_PRId@/PRId32/g;s/@SAINT64_TYPE@/int64_t/g;s/@SAINT64_PRId@/PRId64/g;s/@DIVSUFSORT_IMPORT@//g;s/@DIVSUFSORT_EXPORT@//g;s/@W64BIT@//g;s/@SAINDEX_TYPE@/int32_t/g;s/@SAINDEX_PRId@/PRId32/g;s/@SAINT_PRId@/PRId32/g' $< > $@
 $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): CFLAGS += $(bwsearch_CFLAGS)
 $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): Makefile
+$(bwsearch_SOURCES:%.c=$(OBJ_DIR)/%.o): Makefile
 
 $(BIN_DIR)/libdivsufsort.a: CFLAGS += $(libdivsufsort_CFLAGS)
 $(BIN_DIR)/libdivsufsort.a: $(call src2obj, $(libdivsufsort_a_SRC))
