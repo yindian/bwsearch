@@ -21,7 +21,7 @@ static void writeint(int k, int64_t x, FILE *fp)
     assert(x == 0 || x == -1);
 }
 
-static int count1(int64_t x)
+static int count1_log2(int64_t x, int *plog2)
 {
     int l, n;
     for (l = 64, n = 0; x && l; --l)
@@ -29,7 +29,23 @@ static int count1(int64_t x)
         n += x & 1;
         x >>= 1;
     }
+    if (plog2)
+    {
+        *plog2 = 64 - l - 1;
+    }
     return n;
+}
+
+static int count1(int64_t x)
+{
+    return count1_log2(x, NULL);
+}
+
+static int log2(int64_t x)
+{
+    int ret;
+    count1_log2(x, &ret);
+    return ret;
 }
 
 int main(int argc, char *argv[])
@@ -116,6 +132,7 @@ int main(int argc, char *argv[])
     assert(count1(CSA_LB) == 1);
     assert(CSA_L <= CSA_LB);
     assert(CSA_LB <= (1 << 16));
+    assert(CSA_LB == (1 << log2(CSA_LB)));
     fprintf(stderr, "Reading %s (%lu bytes) ... ", argv[1], (long) len);
 #undef CLEAN_UP
 #define CLEAN_UP do\
@@ -272,12 +289,22 @@ int main(int argc, char *argv[])
     writeint(CSA_K, last, fp);
     writeint(CSA_K, CSA_L, fp);
     writeint(1, CSA_ID_BWS_IDX, fp);
-    writeint(1, CSA_ID_BWS_IDX, fp);
+    writeint(1, log2(CSA_LB), fp);
     writeint(CSA_K, m, fp);
     {
         off_t C[CSA_SIGMA];
         off_t D[CSA_SIGMA];
+        off_t *buf;
+        int l, c;
+        buf = (off_t *) malloc(sizeof(off_t *) * m * (len / CSA_LB + 1));
+        if (!buf)
+        {
+            fprintf(stderr, "malloc failed\n");
+            CLEAN_UP;
+            return FAIL_RET;
+        }
         memset(C, 0, sizeof(C));
+        l = c = 0;
         for (i = 0; i <= len; i += CSA_LB)
         {
             int k, n;
@@ -315,13 +342,21 @@ int main(int argc, char *argv[])
                 {
                     writeint(2, D[AtoC[j]], fp);
                     C[j] += D[AtoC[j]];
+                    ++c;
                 }
             }
             for (j = 0; j < m; j++)
             {
-                writeint(CSA_K, C[j], fp);
+                buf[l++] = C[j];
             }
         }
+        assert(l == m * (len / CSA_LB + 1));
+        assert(c == m * (len / CSA_L + 1));
+        for (j = 0; j < l; j++)
+        {
+            writeint(CSA_K, buf[j], fp);
+        }
+        free(buf);
     }
     fclose(fp);
     TOCK;
