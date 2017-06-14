@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     {
         printf("Usage: %s input_filename[.bw] [output_filename]\n",
                argv[0]);
-        printf("Note: file input_filename.lst is needed too\n");
+        printf("Note: file input_filename.lst (or .idx) is needed too\n");
         return argc > 2;
     }
     else
@@ -53,9 +53,36 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
 #undef CLEAN_UP
-#define CLEAN_UP free(ifname)
+#define CLEAN_UP do\
+    {\
+        bws_free_csa_index(&csa);\
+        free(ifname);\
+    } while (0)
+    sprintf(ifname, "%.*s.idx", baselen, base);
+    fp = fopen(ifname, "rb");
+    if (fp)
+    {
+        int err = 0;
+        fprintf(stderr, "Loading %s ... ", ifname);
+        TICK;
+        err = bws_load_csa_index(&csa, BWS_FLAG_LOAD_ISA, fp);
+        fclose(fp);
+        if (err)
+        {
+            fprintf(stderr, "failed %d\n", err);
+            CLEAN_UP;
+            return FAIL_RET;
+        }
+        TOCK;
+    }
+    else
+    {
+        memset(&csa, 0, sizeof(csa));
+    }
     sprintf(ifname, "%.*s.lst", baselen, base);
-    CHECK_OPEN_FILE(fp, ifname, "r");
+    fp = fopen(ifname, "r");
+    if (fp)
+    {
     last = 0;
     if (fscanf(fp, "%lu", (unsigned long *)&last) != 1)
     {
@@ -65,6 +92,21 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     fclose(fp);
+    if (csa.ISA && last != csa.ISA[0])
+    {
+        fprintf(stderr, "last mismatch %lu vs %lu\n", last, csa.ISA[0]);
+        CLEAN_UP;
+        return FAIL_RET;
+    }
+    }
+    else if (csa.ISA)
+    {
+        last = csa.ISA[0];
+    }
+    else
+    {
+        CHECK_OPEN_FILE(fp, ifname, "r");
+    }
     sprintf(ifname, "%.*s.bw", baselen, base);
     CHECK_OPEN_FILE(fp, ifname, "rb");
     if (fseeko(fp, 0, SEEK_END))
@@ -75,7 +117,7 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     len = ftello(fp);
-    if (len <= 0 || len > MAX_FILE_LEN)
+    if (len <= 0 || len > MAX_FILE_LEN || (csa.ISA && len != csa.n))
     {
         if (len < 0)
         {
@@ -85,10 +127,14 @@ int main(int argc, char *argv[])
         {
             fprintf(stderr, "empty file\n");
         }
-        else
+        else if (len > MAX_FILE_LEN)
         {
             fprintf(stderr, "file too large: %" PRId64 " > %lu bytes\n",
                     (int64_t) len, MAX_FILE_LEN);
+        }
+        else
+        {
+            fprintf(stderr, "size mismatch %lu vs %lu\n", (long) len, csa.n);
         }
         fclose(fp);
         CLEAN_UP;
@@ -109,6 +155,7 @@ int main(int argc, char *argv[])
     {\
         free(SA);\
         free(T);\
+        bws_free_csa_index(&csa);\
         free(ifname);\
     } while (0)
     fprintf(stderr, "Reading %s (%lu bytes) ... ", ifname, (long) len);
@@ -122,35 +169,6 @@ int main(int argc, char *argv[])
     }
     fclose(fp);
     TOCK;
-    sprintf(ifname, "%.*s.idx", baselen, base);
-    fp = fopen(ifname, "rb");
-    if (fp)
-    {
-        int err = 0;
-        fprintf(stderr, "Loading index ... ");
-        TICK;
-#undef CLEAN_UP
-#define CLEAN_UP do\
-    {\
-        bws_free_csa_index(&csa);\
-        free(SA);\
-        free(T);\
-        free(ifname);\
-    } while (0)
-        err = bws_load_csa_index(&csa, BWS_FLAG_LOAD_ISA, fp);
-        fclose(fp);
-        if (err || csa.n != len)
-        {
-            fprintf(stderr, "failed %d\n", err);
-            CLEAN_UP;
-            return FAIL_RET;
-        }
-        TOCK;
-    }
-    else
-    {
-        memset(&csa, 0, sizeof(csa));
-    }
     fprintf(stderr, "Computing Inverse BWT ... ");
     TICK;
     if ((csa.ISA ? bws_inverse_bw_transform(T, T, SA, len, last,
