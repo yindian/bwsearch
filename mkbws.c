@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
         off_t D[CSA_SIGMA];
         off_t *buf;
         int l, c;
-        buf = (off_t *) malloc(sizeof(off_t *) * m * (len / CSA_LB + 1));
+        buf = (off_t *) malloc(sizeof(off_t) * m * (len / CSA_LB + 1));
         if (!buf)
         {
             fprintf(stderr, "malloc failed\n");
