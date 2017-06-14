@@ -66,7 +66,7 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
 
 struct _csaidx_t {
     saidx_t C[CSA_SIGMA];
-    sauchar_t D[CSA_SIGMA];
+    sauchar_t AtoC[CSA_SIGMA];
     saidx_t *SA;
     saidx_t *ISA;
     saidx_t d;

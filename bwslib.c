@@ -62,7 +62,7 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
   }
   ISA = pindex->ISA;
   C = pindex->C;
-  D = pindex->D;
+  D = pindex->AtoC;
   d = pindex->m;
   if((ISA == NULL) || (C == NULL) || (D == NULL) || (d < 0) || (d > pindex->s))
   {
@@ -147,12 +147,12 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND((pindex->d2 = readint(pindex->k, fp)) >= CSA_D2);
         CHECK_COND((pindex->s = readint(pindex->k, fp)) <= CSA_SIGMA);
         memset(pindex->C, 0, sizeof(pindex->C));
-        memset(pindex->D, 0, sizeof(pindex->D));
+        memset(pindex->AtoC, 0, sizeof(pindex->AtoC));
         CHECK_COND((pindex->m = (int) readint(pindex->k, fp)) >= 0);
         for (i = 0; i < pindex->m; i++)
         {
-            CHECK_COND((pindex->D[i] = (sauchar_t) readint(1, fp)) >= 0);
-            CHECK_COND((pindex->C[pindex->D[i]]
+            CHECK_COND((pindex->AtoC[i] = (sauchar_t) readint(1, fp)) >= 0);
+            CHECK_COND((pindex->C[pindex->AtoC[i]]
                         = (saidx_t) readint(pindex->k, fp)) > 0);
         }
         CHECK_COND(readint(1, fp) == CSA_ID_SA);
