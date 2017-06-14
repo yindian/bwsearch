@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     fclose(fp);
     if (csa.ISA && last != csa.ISA[0])
     {
-        fprintf(stderr, "last mismatch %lu vs %lu\n", last, csa.ISA[0]);
+        fprintf(stderr, "last mismatch %u vs %u\n", last, csa.ISA[0]);
         CLEAN_UP;
         return FAIL_RET;
     }
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            fprintf(stderr, "size mismatch %lu vs %lu\n", (long) len, csa.n);
+            fprintf(stderr, "size mismatch %lu vs %u\n", (long) len, csa.n);
         }
         fclose(fp);
         CLEAN_UP;
