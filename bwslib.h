@@ -36,6 +36,7 @@
 #define BWS_FLAG_LOAD_ISA   2
 
 typedef struct _csaidx_t csaidx_t;
+typedef struct _bwsidx_t bwsidx_t;
 
 /*
  * {======================================================================
@@ -79,6 +80,21 @@ struct _csaidx_t {
 
 extern int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp);
 extern int bws_free_csa_index(csaidx_t *pindex);
+
+struct _bwsidx_t {
+    unsigned short *lRankC;
+    saidx_t *lbRankC;
+    saidx_t n;
+    saidx_t last;
+    saidx_t l;
+    saidx_t lb;
+    saidx_t logLB;
+    unsigned int k;
+    int m;
+};
+
+extern int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp);
+extern int bws_free_bws_index(bwsidx_t *pindex);
 
 #endif
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
