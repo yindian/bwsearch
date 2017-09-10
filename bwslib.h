@@ -34,6 +34,7 @@
 
 #define BWS_FLAG_LOAD_SA    1
 #define BWS_FLAG_LOAD_ISA   2
+#define BWS_FLAG_LOAD_RANKC   4
 
 typedef struct _csaidx_t csaidx_t;
 typedef struct _bwsidx_t bwsidx_t;
