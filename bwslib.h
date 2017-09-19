@@ -68,7 +68,9 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
 
 struct _csaidx_t {
     saidx_t C[CSA_SIGMA];
+    saidx_t K[CSA_SIGMA + 2];
     sauchar_t AtoC[CSA_SIGMA];
+    int CtoA[CSA_SIGMA];
     saidx_t *SA;
     saidx_t *ISA;
     saidx_t d;
@@ -96,6 +98,11 @@ struct _bwsidx_t {
 
 extern int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp);
 extern int bws_free_bws_index(bwsidx_t *pindex);
+
+extern int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
+                      FILE *fpbw,
+                      const char *key, int klen,
+                      saidx_t *pleft, saidx_t *pright);
 
 #endif
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */

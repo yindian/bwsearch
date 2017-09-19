@@ -11,6 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if 0
+#define DEBUG_BWS
+#endif
+
 static int64_t readint(int k, FILE *f)
 {
     int64_t x;
@@ -73,13 +77,21 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND((pindex->d2 = readint(pindex->k, fp)) >= CSA_D2);
         CHECK_COND((pindex->s = readint(pindex->k, fp)) <= CSA_SIGMA);
         memset(pindex->C, 0, sizeof(pindex->C));
+        memset(pindex->K, 0, sizeof(pindex->C));
         memset(pindex->AtoC, 0, sizeof(pindex->AtoC));
+        for (i = 0; i < CSA_SIGMA; i++)
+        {
+            pindex->CtoA[i] = -1;
+        }
+        pindex->K[0] = pindex->K[1] = 1;
         CHECK_COND((pindex->m = (int) readint(pindex->k, fp)) >= 0);
         for (i = 0; i < pindex->m; i++)
         {
             CHECK_COND((pindex->AtoC[i] = (sauchar_t) readint(1, fp)) >= 0);
             CHECK_COND((pindex->C[pindex->AtoC[i]]
                         = (saidx_t) readint(pindex->k, fp)) > 0);
+            pindex->CtoA[pindex->AtoC[i]] = i;
+            pindex->K[i + 2] = pindex->K[i + 1] + pindex->C[pindex->AtoC[i]];
         }
         CHECK_COND(readint(1, fp) == CSA_ID_SA);
         CHECK_COND(readint(1, fp) == pindex->k);
@@ -256,5 +268,96 @@ int bws_free_bws_index(bwsidx_t *pindex)
         pindex->lbRankC = NULL;
     }
     return BWS_RET_OK;
+}
+
+static saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
+                         FILE *fpbw,
+                         saidx_t i, int c)
+    /* return num of occurrences of c in bw[0 .. i] */
+{
+    saidx_t rank = 0;
+#ifdef DEBUG_BWS
+    saidx_t j = i;
+#endif
+    if (i >= pbws->last)
+    {
+        rank = c < 0;
+        i--;
+    }
+    if (c >= 0)
+    {
+        c = pcsa->AtoC[c];
+        fseeko(fpbw, 0, SEEK_SET);
+        while (i-- >= 0)
+        {
+            rank += fgetc(fpbw) == c;
+        }
+    }
+#ifdef DEBUG_BWS
+    printf("rank_%c(%d) = %d\n", c, j, rank);
+#endif
+    return rank;
+}
+
+int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
+               FILE *fpbw,
+               const char *key, int klen,
+               saidx_t *pleft, saidx_t *pright)
+{
+    int i;
+    saidx_t l, r, lastl, lastr;
+    if (!pcsa || !pbws || !fpbw || !key)
+    {
+        return BWS_RET_INV_ARG;
+    }
+    if (pcsa->n != pbws->n)
+    {
+        return BWS_RET_MALFORM;
+    }
+    l = 0;
+    r = pbws->n;
+#ifdef DEBUG_BWS
+    for (i = 0; i < pcsa->m + 2; i++)
+    {
+        printf("%s%d", i == 0 ? "K[] = {" : ", ", pcsa->K[i]);
+    }
+    printf("}\n");
+#endif
+    for (i = klen - 1; i >= 0; i--)
+    {
+        int c = pcsa->CtoA[(unsigned char) key[i]];
+        if (c < 0)
+        {
+            break;
+        }
+        if (i == klen - 1)
+        {
+            l = pcsa->K[c + 1];
+            r = pcsa->K[c + 2] - 1;
+        }
+        else
+        {
+            lastl = l;
+            lastr = r;
+            l = pcsa->K[c + 1] + bws_rankc(pcsa, pbws,
+                                           fpbw,
+                                           l - 1, c);
+            r = pcsa->K[c + 1] + bws_rankc(pcsa, pbws,
+                                           fpbw,
+                                           r, c) - 1;
+            if (l > r)
+            {
+                l = lastl;
+                r = lastr;
+                break;
+            }
+        }
+#ifdef DEBUG_BWS
+        printf("Partial: %s l = %d, r = %d\n", key + i, l, r);
+#endif
+    }
+    if (pleft) { *pleft = l; }
+    if (pright) { *pright = r; }
+    return klen - i - 1;
 }
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
