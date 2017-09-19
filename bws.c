@@ -91,8 +91,8 @@ int main(int argc, char *argv[])
                      argv[2], strlen(argv[2]),
                      &l, &r);
     fclose(fp);
-    printf("Matched suffix: %s\nl = %d, r = %d\n",
-           argv[2] + strlen(argv[2]) - ret, l, r);
+    printf("Matched suffix: %s\nl = %d, r = %d, r - l + 1 = %d\n",
+           argv[2] + strlen(argv[2]) - ret, l, r, r - l + 1);
     return 0;
 }
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */

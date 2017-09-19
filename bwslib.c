@@ -279,6 +279,7 @@ static saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
 #ifdef DEBUG_BWS
     saidx_t j = i;
 #endif
+#if 0
     if (i >= pbws->last)
     {
         rank = c < 0;
@@ -293,6 +294,41 @@ static saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
             rank += fgetc(fpbw) == c;
         }
     }
+#else
+    if (c < 0)
+    {
+        rank = i >= pbws->last;
+    }
+    else
+    {
+        saidx_t pos = 0;
+        if (i >= pbws->lb)
+        {
+            rank = pbws->lbRankC[((i >> pbws->logLB) - 1) * pcsa->m + c];
+            pos = (i >> pbws->logLB) << pbws->logLB; /* i & ~(pbws->lb - 1); */
+        }
+        i -= pbws->l;
+        for (; pos <= i; pos += pbws->l)
+        {
+            rank += pbws->lRankC[(pos / pbws->l) * pcsa->m + c];
+        }
+        i += pbws->l;
+        if (pos <= i)
+        {
+            c = pcsa->AtoC[c];
+            fseeko(fpbw, pos, SEEK_SET);
+            if (i >= pbws->last)
+            {
+                i--;
+            }
+            i -= pos;
+            while (i-- >= 0)
+            {
+                rank += fgetc(fpbw) == c;
+            }
+        }
+    }
+#endif
 #ifdef DEBUG_BWS
     printf("rank_%c(%d) = %d\n", c, j, rank);
 #endif
