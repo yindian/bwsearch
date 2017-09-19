@@ -86,11 +86,14 @@ int main(int argc, char *argv[])
     TOCK;
     sprintf(ifname, "%.*s.bw", baselen, base);
     CHECK_OPEN_FILE(fp, ifname, "rb");
+    fprintf(stderr, "Searching %s ... ", argv[2]);
+    TICK;
     ret = bws_search(&csa, &bws,
                      fp,
                      argv[2], strlen(argv[2]),
                      &l, &r);
     fclose(fp);
+    TOCK;
     printf("Matched suffix: %s\nl = %d, r = %d, r - l + 1 = %d\n",
            argv[2] + strlen(argv[2]) - ret, l, r, r - l + 1);
     return 0;

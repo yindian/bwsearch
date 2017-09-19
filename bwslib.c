@@ -302,15 +302,16 @@ static saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
     else
     {
         saidx_t pos = 0;
+        saidx_t k;
         if (i >= pbws->lb)
         {
             rank = pbws->lbRankC[((i >> pbws->logLB) - 1) * pcsa->m + c];
             pos = (i >> pbws->logLB) << pbws->logLB; /* i & ~(pbws->lb - 1); */
         }
         i -= pbws->l;
-        for (; pos <= i; pos += pbws->l)
+        for (k = pos/pbws->l * pcsa->m; pos <= i; pos += pbws->l, k += pcsa->m)
         {
-            rank += pbws->lRankC[(pos / pbws->l) * pcsa->m + c];
+            rank += pbws->lRankC[k + c];
         }
         i += pbws->l;
         if (pos <= i)
