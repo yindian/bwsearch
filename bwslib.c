@@ -270,9 +270,9 @@ int bws_free_bws_index(bwsidx_t *pindex)
     return BWS_RET_OK;
 }
 
-static saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
-                         FILE *fpbw,
-                         saidx_t i, int c)
+saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
+                  FILE *fpbw,
+                  saidx_t i, int c)
     /* return num of occurrences of c in bw[0 .. i] */
 {
     saidx_t rank = 0;

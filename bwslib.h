@@ -99,6 +99,10 @@ struct _bwsidx_t {
 extern int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp);
 extern int bws_free_bws_index(bwsidx_t *pindex);
 
+extern saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
+                         FILE *fpbw,
+                         saidx_t i, int c);
+
 extern int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                       FILE *fpbw,
                       const char *key, int klen,

@@ -29,6 +29,7 @@ libdivsufsort_GEN_HDR = divsufsort.h lfs.h
 TARGETS += $(addprefix $(BIN_DIR)/,$(bwsearch_TARGETS))
 SRC += $(bwsearch_SOURCES)
 bwsearch_TARGETS = mkbws unbws bws
+bwsearch_TARGETS += chkbws
 bwsearch_CFLAGS = -ansi -pedantic -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 bwsearch_CFLAGS += -g
 ifneq ($(findstring --enable-libgomp,$(CC_V))$(findstring --enable-gnu,$(CC_V)),)
@@ -38,6 +39,7 @@ bwsearch_SOURCES = $(filter-out %.a, $(foreach prog,$(bwsearch_TARGETS),$(value 
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c bwslib.c bwslib2.c libdivsufsort.a
 bws_SRC = bws.c bwslib.c
+chkbws_SRC = chkbws.c bwslib.c
 
 DEP_DIR = deps
 OBJ_DIR = objs
