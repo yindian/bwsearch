@@ -75,17 +75,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        char *dot;
-        base = argv[1];
-        if ((dot = strrchr(base, '.')) &&
-            !strchr(dot, '/') && !strchr(dot, '\\'))
-        {
-            baselen = (int) (dot - base);
-        }
-        else
-        {
-            baselen = (int) strlen(base);
-        }
+        GET_BASE_N_LEN(base, baselen, argv[1]);
     }
     CHECK_OPEN_FILE(fp, argv[1], "rb");
 #undef CLEAN_UP

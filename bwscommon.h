@@ -31,5 +31,20 @@ static clock_t start, finish;
 
 #define MAX_FILE_LEN (1UL << 31)
 
+#define GET_BASE_N_LEN(_base, _baselen, _name) do\
+    {\
+        char *dot;\
+        _base = _name;\
+        if ((dot = strrchr(_base, '.')) &&\
+            !strchr(dot, '/') && !strchr(dot, '\\'))\
+        {\
+            _baselen = (int) (dot - _base);\
+        }\
+        else\
+        {\
+            _baselen = (int) strlen(_base);\
+        }\
+    } while (0)
+
 #endif
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
