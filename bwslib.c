@@ -317,6 +317,7 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
         if (pos <= i)
         {
             c = pcsa->AtoC[c];
+            pos -= pos > pbws->last;
             fseeko(fpbw, pos, SEEK_SET);
             if (i >= pbws->last)
             {
