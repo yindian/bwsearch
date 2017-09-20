@@ -203,8 +203,8 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(pindex->logLB <= 16);
         pindex->lb = 1 << pindex->logLB;
         CHECK_COND((pindex->m = (int) readint(pindex->k, fp)) >= 0);
-        l = pindex->m * (pindex->n / CSA_LB + 1);
-        c = pindex->m * (pindex->n / CSA_L + 1);
+        l = pindex->m * (pindex->n / pindex->lb + 1);
+        c = pindex->m * (pindex->n / pindex->l + 1);
         if ((flags & BWS_FLAG_LOAD_RANKC))
         {
             pindex->lRankC = (unsigned short *) malloc(c * sizeof(saidx_t));
