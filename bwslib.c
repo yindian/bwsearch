@@ -196,7 +196,7 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         CHECK_COND((pindex->n = readint(pindex->k, fp)) >= 0);
         CHECK_COND((pindex->last = readint(pindex->k, fp)) >= 0);
         CHECK_COND(pindex->last <= pindex->n);
-        CHECK_COND((pindex->l = readint(pindex->k, fp)) >= CSA_L);
+        CHECK_COND((pindex->l = readint(pindex->k, fp)) > 0);
         CHECK_COND(count1(pindex->l) == 1);
         CHECK_COND(readint(1, fp) == CSA_ID_BWS_IDX);
         CHECK_COND((pindex->logLB = readint(1, fp)) >= 0);
