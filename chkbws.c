@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     TOCK;
-    fprintf(stderr, "Checking rank_[1 .. %d](BW, 0 .. %d) ... ", csa.m, bws.n);
+    fprintf(stderr, "Checking rank_[1 .. %d](BW, 0 .. %d) .", csa.m, bws.n);
     TICK;
     memset(C, 0, sizeof(C));
     for (i = 0; i <= bws.n; i++)
@@ -158,12 +158,17 @@ int main(int argc, char *argv[])
             if (C[c] != rank)
             {
                 printf("Mismatched rank_%c{%d}(%d) %d != %d\n",
-                       csa.AtoC[c], c, i,
+                       csa.AtoC[c], c + 1, i,
                        rank, C[c]);
             }
         }
+        if (!(i & (bws.lb - 1)))
+        {
+            fprintf(stderr, ".");
+        }
     }
     fclose(fp);
+    fprintf(stderr, " ");
     TOCK;
     return 0;
 }
