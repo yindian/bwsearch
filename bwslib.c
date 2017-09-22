@@ -10,6 +10,11 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include "mman.h"
+#else
+#include <sys/mman.h>
+#endif
 
 #if 0
 #define DEBUG_BWS

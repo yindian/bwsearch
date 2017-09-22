@@ -19,3 +19,4 @@ output.*
 
 divsufsort.h
 lfs.h
+mman.h

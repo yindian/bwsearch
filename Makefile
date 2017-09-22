@@ -60,6 +60,18 @@ DOT_EXE =
 else
 DOT_EXE = .exe
 bwsearch_CFLAGS += -Wno-format #pedantic-ms-
+
+TARGETS += $(addprefix $(BIN_DIR)/,$(mman_TARGETS))
+SRC += $(mman_SOURCES)
+GENERATED += $(mman_GEN_HDR)
+mman_TARGETS = libmman.a
+mman_CFLAGS = -fomit-frame-pointer
+mman_SOURCES = $(libmman_a_SRC)
+mman_GEN_HDR = mman.h
+mman_DIR = mman-win32
+libmman_a_SRC = $(mman_DIR)/mman.c
+$(foreach prog,$(filter-out mkbws,$(bwsearch_TARGETS)),$(eval $(prog)_SRC += libmman.a))
+
 ORIG_TARGETS := $(TARGETS)
 TARGETS = $(addsuffix $(DOT_EXE),$(filter-out %.a,$(ORIG_TARGETS))) $(filter %.a,$(ORIG_TARGETS))
 endif
@@ -82,6 +94,16 @@ $(BIN_DIR)/libdivsufsort.a: CFLAGS += $(libdivsufsort_CFLAGS)
 $(BIN_DIR)/libdivsufsort.a: $(call src2obj, $(libdivsufsort_a_SRC))
 	@mkdir -p $(@D)
 	$(AR) $(ARFLAGS) $@ $^
+
+ifneq ($(findstring mingw,$(BHOST)),)
+$(BIN_DIR)/libmman.a: CFLAGS += $(mman_CFLAGS)
+$(BIN_DIR)/libmman.a: $(call src2obj, $(mman_a_SRC))
+	@mkdir -p $(@D)
+	$(AR) $(ARFLAGS) $@ $^
+$(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): $(mman_GEN_HDR)
+$(mman_GEN_HDR): %.h: $(mman_DIR)/%.h
+	$(SED) '/^#ifndef.*\/\//s=//=\n&=' $< > $@
+endif
 
 $(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(libdivsufsort_EXAMPLES))): CFLAGS += $(libdivsufsort_CFLAGS)
 $(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(bwsearch_TARGETS))): CFLAGS += $(bwsearch_CFLAGS)
