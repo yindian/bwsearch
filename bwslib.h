@@ -34,7 +34,8 @@
 
 #define BWS_FLAG_LOAD_SA    1
 #define BWS_FLAG_LOAD_ISA   2
-#define BWS_FLAG_LOAD_RANKC   4
+#define BWS_FLAG_LOAD_RANKC 4
+#define BWS_FLAG_MMAP       8
 
 typedef struct _csaidx_t csaidx_t;
 typedef struct _bwsidx_t bwsidx_t;
@@ -79,6 +80,9 @@ struct _csaidx_t {
     unsigned int k;
     unsigned int s;
     int m;
+    int fd;
+    long len;
+    void *map;
 };
 
 extern int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp);
@@ -94,6 +98,9 @@ struct _bwsidx_t {
     saidx_t logLB;
     unsigned int k;
     int m;
+    int fd;
+    long len;
+    void *map;
 };
 
 extern int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp);

@@ -10,6 +10,7 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #ifdef _WIN32
 #include "mman.h"
 #else
@@ -77,6 +78,28 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(4, fp) == CSA_VERSION);
         CHECK_COND(readint(1, fp) == CSA_ID_HEADER);
         CHECK_COND((pindex->k = readint(1, fp)) <= CSA_K);
+        if ((flags & BWS_FLAG_MMAP) && (sizeof(saidx_t) == pindex->k))
+        {
+            if (fseeko(fp, 0, SEEK_END))
+            {
+                perror("seek failed");
+                return BWS_RET_MEM_ERR;
+            }
+            pindex->len = (long) ftello(fp);
+            if (fseeko(fp, 6, SEEK_SET))
+            {
+                perror("seek failed");
+                return BWS_RET_MEM_ERR;
+            }
+            CHECK_COND((pindex->fd = dup(fileno(fp))) > 0);
+            pindex->map = mmap(NULL, pindex->len,
+                              PROT_READ, MAP_SHARED, pindex->fd, 0);
+            if (!pindex->map || pindex->map == MAP_FAILED)
+            {
+                perror("mmap failed");
+                return BWS_RET_MEM_ERR;
+            }
+        }
         CHECK_COND((pindex->n = readint(pindex->k, fp)) >= 0);
         CHECK_COND((pindex->d = readint(pindex->k, fp)) >= CSA_D);
         CHECK_COND((pindex->d2 = readint(pindex->k, fp)) >= CSA_D2);
@@ -101,6 +124,13 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == CSA_ID_SA);
         CHECK_COND(readint(1, fp) == pindex->k);
         CHECK_COND(readint(pindex->k, fp) == pindex->d);
+        if ((flags & BWS_FLAG_LOAD_SA) && (flags & BWS_FLAG_MMAP)
+            && (sizeof(saidx_t) == pindex->k))
+        {
+            pindex->SA = (saidx_t *) ((char *) pindex->map + ftello(fp));
+            fseeko(fp, (pindex->n / pindex->d + 1) * pindex->k, SEEK_CUR);
+        }
+        else
         if ((flags & BWS_FLAG_LOAD_SA))
         {
             pindex->SA = (saidx_t *) malloc((pindex->n / pindex->d + 1)
@@ -127,6 +157,12 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == CSA_ID_ISA);
         CHECK_COND(readint(1, fp) == pindex->k);
         CHECK_COND(readint(pindex->k, fp) == pindex->d2);
+        if ((flags & BWS_FLAG_LOAD_ISA) && (flags & BWS_FLAG_MMAP)
+            && (sizeof(saidx_t) == pindex->k))
+        {
+            pindex->ISA = (saidx_t *) ((char *) pindex->map + ftello(fp));
+        }
+        else
         if ((flags & BWS_FLAG_LOAD_ISA))
         {
             pindex->ISA = (saidx_t *) malloc(((pindex->n - 1) / pindex->d2 + 1)
@@ -159,6 +195,21 @@ int bws_free_csa_index(csaidx_t *pindex)
     if (!pindex)
     {
         return BWS_RET_INV_ARG;
+    }
+    if (pindex->map)
+    {
+        if (munmap(pindex->map, pindex->len))
+        {
+            perror("munmap failed");
+        }
+        pindex->len = 0;
+        pindex->map = NULL;
+    }
+    if (pindex->fd)
+    {
+        close(pindex->fd);
+        pindex->fd = 0;
+        return BWS_RET_OK;
     }
     if (pindex->SA)
     {
@@ -198,6 +249,28 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         int l, c;
         CHECK_COND(readint(1, fp) == CSA_ID_LF);
         CHECK_COND((pindex->k = readint(1, fp)) <= CSA_K);
+        if ((flags & BWS_FLAG_MMAP) && (sizeof(saidx_t) == pindex->k))
+        {
+            if (fseeko(fp, 0, SEEK_END))
+            {
+                perror("seek failed");
+                return BWS_RET_MEM_ERR;
+            }
+            pindex->len = (long) ftello(fp);
+            if (fseeko(fp, 2, SEEK_SET))
+            {
+                perror("seek failed");
+                return BWS_RET_MEM_ERR;
+            }
+            CHECK_COND((pindex->fd = dup(fileno(fp))) > 0);
+            pindex->map = mmap(NULL, pindex->len,
+                              PROT_READ, MAP_SHARED, pindex->fd, 0);
+            if (!pindex->map || pindex->map == MAP_FAILED)
+            {
+                perror("mmap failed");
+                return BWS_RET_MEM_ERR;
+            }
+        }
         CHECK_COND((pindex->n = readint(pindex->k, fp)) >= 0);
         CHECK_COND((pindex->last = readint(pindex->k, fp)) >= 0);
         CHECK_COND(pindex->last <= pindex->n);
@@ -210,6 +283,15 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         CHECK_COND((pindex->m = (int) readint(pindex->k, fp)) >= 0);
         l = pindex->m * (pindex->n / pindex->lb + 1);
         c = pindex->m * (pindex->n / pindex->l + 1);
+        if ((flags & BWS_FLAG_LOAD_RANKC) && (flags & BWS_FLAG_MMAP)
+            && (sizeof(saidx_t) == pindex->k))
+        {
+            pindex->lRankC = (unsigned short *)((char *)pindex->map+ftello(fp));
+            fseeko(fp, c * 2, SEEK_CUR);
+            pindex->lbRankC = (saidx_t *) ((char *)pindex->map+ftello(fp));
+            fseeko(fp, l * pindex->k, SEEK_CUR);
+        }
+        else
         if ((flags & BWS_FLAG_LOAD_RANKC))
         {
             pindex->lRankC = (unsigned short *) malloc(c * sizeof(saidx_t));
@@ -261,6 +343,21 @@ int bws_free_bws_index(bwsidx_t *pindex)
     if (!pindex)
     {
         return BWS_RET_INV_ARG;
+    }
+    if (pindex->map)
+    {
+        if (munmap(pindex->map, pindex->len))
+        {
+            perror("munmap failed");
+        }
+        pindex->len = 0;
+        pindex->map = NULL;
+    }
+    if (pindex->fd)
+    {
+        close(pindex->fd);
+        pindex->fd = 0;
+        return BWS_RET_OK;
     }
     if (pindex->lRankC)
     {

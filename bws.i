@@ -17,7 +17,8 @@
     CHECK_OPEN_FILE(fp, ifname, "rb");
     fprintf(stderr, "Loading %s ... ", ifname);
     TICK;
-    ret = bws_load_csa_index(&csa, BWS_FLAG_LOAD_ISA, fp);
+    ret = bws_load_csa_index(&csa, BWS_FLAG_LOAD_SA | BWS_FLAG_LOAD_ISA
+                             | BWS_FLAG_MMAP, fp);
     fclose(fp);
     if (ret)
     {
@@ -37,7 +38,7 @@
     CHECK_OPEN_FILE(fp, ifname, "rb");
     fprintf(stderr, "Loading %s ... ", ifname);
     TICK;
-    ret = bws_load_bws_index(&bws, BWS_FLAG_LOAD_RANKC, fp);
+    ret = bws_load_bws_index(&bws, BWS_FLAG_LOAD_RANKC | BWS_FLAG_MMAP, fp);
     fclose(fp);
     if (ret)
     {
