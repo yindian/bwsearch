@@ -89,6 +89,7 @@ $(libdivsufsort_GEN_HDR): %.h: libdivsufsort/include/%.h.cmake Makefile
 $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): CFLAGS += $(bwsearch_CFLAGS)
 $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): $(libdivsufsort_GEN_HDR)
 $(bwsearch_SOURCES:%.c=$(OBJ_DIR)/%.o): Makefile
+$(bwsearch_SOURCES:%.c=$(OBJ_DIR)/%.o): CFLAGS += $(bwsearch_CFLAGS)
 
 $(BIN_DIR)/libdivsufsort.a: CFLAGS += $(libdivsufsort_CFLAGS)
 $(BIN_DIR)/libdivsufsort.a: $(call src2obj, $(libdivsufsort_a_SRC))
@@ -97,7 +98,7 @@ $(BIN_DIR)/libdivsufsort.a: $(call src2obj, $(libdivsufsort_a_SRC))
 
 ifneq ($(findstring mingw,$(BHOST)),)
 $(BIN_DIR)/libmman.a: CFLAGS += $(mman_CFLAGS)
-$(BIN_DIR)/libmman.a: $(call src2obj, $(mman_a_SRC))
+$(BIN_DIR)/libmman.a: $(call src2obj, $(libmman_a_SRC))
 	@mkdir -p $(@D)
 	$(AR) $(ARFLAGS) $@ $^
 $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): $(mman_GEN_HDR)
@@ -106,7 +107,6 @@ $(mman_GEN_HDR): %.h: $(mman_DIR)/%.h
 endif
 
 $(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(libdivsufsort_EXAMPLES))): CFLAGS += $(libdivsufsort_CFLAGS)
-$(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(bwsearch_TARGETS))): CFLAGS += $(bwsearch_CFLAGS)
 
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter libdivsufsort.a,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(libdivsufsort_LDFLAGS)
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(eval $(BIN_DIR)/$(prog)$(DOT_EXE): $(call src2obj, $(value $(prog)_SRC))))
