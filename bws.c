@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     TICK;
     ret = bws_search(&csa, &bws,
                      fp,
-                     argv[2], strlen(argv[2]),
+                     argv[2], (int) strlen(argv[2]),
                      &l, &r);
     fclose(fp);
     TOCK;
