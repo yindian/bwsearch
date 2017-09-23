@@ -67,6 +67,17 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
 
 /* }====================================================================== */
 
+typedef saidx_t (*get_saidx_f)(saidx_t *base, int idx, unsigned int k);
+#define GET_SAIDX(_struct, _field, _idx) ((_struct).get ?\
+                                          (_struct).get((_struct)._field,\
+                                                        _idx, (_struct).k)\
+                                          : (_struct)._field[_idx])
+typedef unsigned short (*get_ushort_f)(unsigned short *base, int idx);
+#define GET_U16(_struct, _field, _idx) ((_struct).get16 ?\
+                                        (_struct).get16((_struct)._field,\
+                                                        _idx), (_struct).k)\
+                                         : (_struct)._field[_idx])
+
 struct _csaidx_t {
     saidx_t C[CSA_SIGMA];
     saidx_t K[CSA_SIGMA + 2];
@@ -83,6 +94,7 @@ struct _csaidx_t {
     int fd;
     long len;
     void *map;
+    get_saidx_f get;
 };
 
 extern int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp);
@@ -101,6 +113,8 @@ struct _bwsidx_t {
     int fd;
     long len;
     void *map;
+    get_saidx_f get;
+    get_ushort_f get16;
 };
 
 extern int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp);

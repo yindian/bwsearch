@@ -34,6 +34,19 @@ static int64_t readint(int k, FILE *f)
     return x;
 }
 
+static int64_t getint(int k, sauchar_t *base, int idx)
+{
+    int64_t x;
+    int i;
+    x = 0;
+    base += idx * k;
+    for (i = 0; i < k; i++)
+    {
+        x += (int64_t) *base++ << (8*i);
+    }
+    return x;
+}
+
 static int count1_log2(int64_t x, int *plog2)
 {
     int l, n;
@@ -52,6 +65,48 @@ static int count1_log2(int64_t x, int *plog2)
 static int count1(int64_t x)
 {
     return count1_log2(x, NULL);
+}
+
+static saidx_t get_saidx_direct(saidx_t *base, int idx, unsigned int k)
+{
+    (void)k;
+    return base[idx];
+}
+
+static unsigned short get_ushort_direct(unsigned short *base, int idx)
+{
+    return base[idx];
+}
+
+#if !defined(le32toh) || !defined(le16toh)
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define le32toh(_x) (_x)
+#define le16toh(_x) (_x)
+#else
+#define le32toh(_x) ({\
+                     uint32_t _v = (_x);\
+                     ((_v & 0xFF) << 24) | (((_v >> 8) & 0xFF) << 16) |\
+                     (((_v >> 16) & 0xFF) << 8) | (_v >> 24);})
+#define le16toh(_x) ({\
+                     uint16_t _v = (_x);\
+                     ((_v & 0xFF) << 8) | (_v >> 8);})
+#endif
+#endif
+
+static saidx_t get_saidx_le(saidx_t *base, int idx, unsigned int k)
+{
+    (void)k;
+    return (saidx_t) le32toh((uint32_t) base[idx]);
+}
+
+static unsigned short get_ushort_le(unsigned short *base, int idx)
+{
+    return le16toh(base[idx]);
+}
+
+static saidx_t get_saidx_nonstd(saidx_t *base, int idx, unsigned int k)
+{
+    return getint(k, (sauchar_t *) base, idx);
 }
 
 int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
@@ -79,7 +134,7 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(4, fp) == CSA_VERSION);
         CHECK_COND(readint(1, fp) == CSA_ID_HEADER);
         CHECK_COND((pindex->k = readint(1, fp)) <= CSA_K);
-        if ((flags & BWS_FLAG_MMAP) && (sizeof(saidx_t) == pindex->k))
+        if ((flags & BWS_FLAG_MMAP))
         {
             off_t pos = ftello(fp);
             if (fseeko(fp, 0, SEEK_END))
@@ -101,6 +156,18 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
                 perror("mmap failed");
                 return BWS_RET_MEM_ERR;
             }
+            if (sizeof(saidx_t) == pindex->k)
+            {
+                pindex->get = get_saidx_le;
+            }
+            else
+            {
+                pindex->get = get_saidx_nonstd;
+            }
+        }
+        else
+        {
+            pindex->get = get_saidx_direct;
         }
         CHECK_COND((pindex->n = readint(pindex->k, fp)) >= 0);
         CHECK_COND((pindex->d = readint(pindex->k, fp)) >= CSA_D);
@@ -127,7 +194,7 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == pindex->k);
         CHECK_COND(readint(pindex->k, fp) == pindex->d);
         if ((flags & BWS_FLAG_LOAD_SA) && (flags & BWS_FLAG_MMAP)
-            && (sizeof(saidx_t) == pindex->k))
+            )
         {
             pindex->SA = (saidx_t *) ((char *) pindex->map + ftello(fp));
             fseeko(fp, (pindex->n / pindex->d + 1) * pindex->k, SEEK_CUR);
@@ -160,7 +227,7 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == pindex->k);
         CHECK_COND(readint(pindex->k, fp) == pindex->d2);
         if ((flags & BWS_FLAG_LOAD_ISA) && (flags & BWS_FLAG_MMAP)
-            && (sizeof(saidx_t) == pindex->k))
+            )
         {
             pindex->ISA = (saidx_t *) ((char *) pindex->map + ftello(fp));
             fseeko(fp, ((pindex->n - 1) / pindex->d2 + 1)* pindex->k, SEEK_CUR);
@@ -203,6 +270,7 @@ int bws_free_csa_index(csaidx_t *pindex)
     {
         return BWS_RET_INV_ARG;
     }
+    pindex->get = NULL;
     if (pindex->map)
     {
         if (munmap(pindex->map, pindex->len))
@@ -256,7 +324,7 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         int l, c;
         CHECK_COND(readint(1, fp) == CSA_ID_LF);
         CHECK_COND((pindex->k = readint(1, fp)) <= CSA_K);
-        if ((flags & BWS_FLAG_MMAP) && (sizeof(saidx_t) == pindex->k))
+        if ((flags & BWS_FLAG_MMAP))
         {
             off_t pos = ftello(fp);
             if (fseeko(fp, 0, SEEK_END))
@@ -278,6 +346,20 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
                 perror("mmap failed");
                 return BWS_RET_MEM_ERR;
             }
+            if (sizeof(saidx_t) == pindex->k)
+            {
+                pindex->get = get_saidx_le;
+            }
+            else
+            {
+                pindex->get = get_saidx_nonstd;
+            }
+            pindex->get16 = get_ushort_le;
+        }
+        else
+        {
+            pindex->get = get_saidx_direct;
+            pindex->get16 = get_ushort_direct;
         }
         CHECK_COND((pindex->n = readint(pindex->k, fp)) >= 0);
         CHECK_COND((pindex->last = readint(pindex->k, fp)) >= 0);
@@ -292,7 +374,7 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         l = pindex->m * (pindex->n / pindex->lb + 1);
         c = pindex->m * (pindex->n / pindex->l + 1);
         if ((flags & BWS_FLAG_LOAD_RANKC) && (flags & BWS_FLAG_MMAP)
-            && (sizeof(saidx_t) == pindex->k))
+            )
         {
             pindex->lRankC = (unsigned short *)((char *)pindex->map+ftello(fp));
             fseeko(fp, c * 2, SEEK_CUR);
@@ -352,6 +434,8 @@ int bws_free_bws_index(bwsidx_t *pindex)
     {
         return BWS_RET_INV_ARG;
     }
+    pindex->get = NULL;
+    pindex->get16 = NULL;
     if (pindex->map)
     {
         if (munmap(pindex->map, pindex->len))

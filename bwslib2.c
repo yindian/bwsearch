@@ -84,7 +84,7 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
       {
           k = n;
       }
-      for (i = j * pindex->d2, p = ISA[j]; i < k; ++i)
+      for (i = j * pindex->d2, p = GET_SAIDX(*pindex, ISA, j); i < k; ++i)
       {
           U[i] = D[binarysearch_lower(C, d, p)];
           p = B[p - 1];

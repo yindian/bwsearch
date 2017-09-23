@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
         int err = 0;
         fprintf(stderr, "Loading %s ... ", ifname);
         TICK;
-        err = bws_load_csa_index(&csa, BWS_FLAG_LOAD_ISA, fp);
+        err = bws_load_csa_index(&csa, BWS_FLAG_LOAD_ISA | BWS_FLAG_MMAP, fp);
         fclose(fp);
         if (err)
         {
@@ -82,16 +82,16 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     fclose(fp);
-    if (csa.ISA && last != csa.ISA[0])
+    if (csa.ISA && last != GET_SAIDX(csa, ISA, 0))
     {
-        fprintf(stderr, "last mismatch %u vs %u\n", last, csa.ISA[0]);
+        fprintf(stderr, "last mismatch %u vs %u\n", last, GET_SAIDX(csa,ISA,0));
         CLEAN_UP;
         return FAIL_RET;
     }
     }
     else if (csa.ISA)
     {
-        last = csa.ISA[0];
+        last = GET_SAIDX(csa, ISA, 0);
     }
     else
     {
