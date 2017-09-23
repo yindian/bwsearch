@@ -2,6 +2,7 @@
  * See Copyright Notice in bwslib.h
  */
 
+#define _POSIX_SOURCE
 #include "bwslib.h"
 #ifndef COMPILE_TEST
 #include <inttypes.h>
