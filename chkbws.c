@@ -12,6 +12,7 @@
 int main(int argc, char *argv[])
 {
     FILE *fp;
+    bw_file_t *bwfp;
     char *base, *ifname;
     int baselen;
     csaidx_t csa;
@@ -49,11 +50,13 @@ int main(int argc, char *argv[])
             for (c = 0; c < csa.m; c++)
             {
                 printf("\t%d", bws_rankc(&csa, &bws,
-                                         fp,
+                                         bwfp,
                                          i, c));
             }
             printf("\n");
         }
+        bwfp->close(bwfp);
+        fclose(fp);
         TOCK;
         return 0;
     }
@@ -77,6 +80,7 @@ int main(int argc, char *argv[])
     if (fread(BW, sizeof(sauchar_t), bws.n, fp) != bws.n)
     {
         perror("read failed");
+        bwfp->close(bwfp);
         fclose(fp);
         CLEAN_UP;
         return FAIL_RET;
@@ -98,7 +102,7 @@ int main(int argc, char *argv[])
         for (c = 0; c < csa.m; c++)
         {
             saidx_t rank = bws_rankc(&csa, &bws,
-                                     fp,
+                                     bwfp,
                                      i, c);
             if (C[c] != rank)
             {
@@ -112,6 +116,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, ".");
         }
     }
+    bwfp->close(bwfp);
     fclose(fp);
     fprintf(stderr, " ");
     TOCK;

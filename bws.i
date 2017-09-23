@@ -49,4 +49,5 @@
     TOCK;
     sprintf(ifname, "%.*s.bw", baselen, base);
     CHECK_OPEN_FILE(fp, ifname, "rb");
+    bwfp = bw_file_new_from_fp(fp, BWS_FLAG_MMAP);
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */

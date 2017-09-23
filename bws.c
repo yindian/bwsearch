@@ -12,6 +12,7 @@
 int main(int argc, char *argv[])
 {
     FILE *fp;
+    bw_file_t *bwfp;
     char *base, *ifname;
     int baselen;
     csaidx_t csa;
@@ -33,9 +34,10 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Searching %s ... ", argv[2]);
     TICK;
     ret = bws_search(&csa, &bws,
-                     fp,
+                     bwfp,
                      argv[2], (int) strlen(argv[2]),
                      &l, &r);
+    bwfp->close(bwfp);
     fclose(fp);
     TOCK;
     printf("Matched suffix: %s\nl = %d, r = %d, r - l + 1 = %d\n",

@@ -464,8 +464,131 @@ int bws_free_bws_index(bwsidx_t *pindex)
     return BWS_RET_OK;
 }
 
+typedef struct _bw_mmap_t {
+    sauchar_t *map;
+    off_t   pos;
+    off_t   len;
+} bw_mmap_t;
+
+static bw_mmap_t *bw_file_new_mmap(FILE *fp)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) malloc(sizeof(bw_mmap_t));
+    if (bwm)
+    {
+        bwm->pos = ftello(fp);
+        do
+        {
+            if (fseeko(fp, 0, SEEK_END))
+            {
+                perror("seek failed");
+                break;
+            }
+            bwm->len = ftello(fp);
+            if (fseeko(fp, bwm->pos, SEEK_SET))
+            {
+                perror("seek failed");
+                break;
+            }
+            bwm->map = (sauchar_t *) mmap(NULL, bwm->len,
+                                          PROT_READ, MAP_SHARED,
+                                          fileno(fp), 0);
+            if (!bwm->map || bwm->map == MAP_FAILED)
+            {
+                perror("mmap failed");
+                break;
+            }
+            return bwm;
+        } while (0);
+        free(bwm);
+    }
+    return NULL;
+}
+
+static void bw_file_seek_set_from_mmap(bw_file_t *bwfp, saidx_t pos)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    if (pos >= 0 && pos <= bwm->len)
+    {
+        bwm->pos = pos;
+    }
+    else
+    {
+        fprintf(stderr, "seek beyond range\n");
+    }
+}
+
+static int bw_file_get_char_from_mmap(bw_file_t *bwfp)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    if (bwm->pos >= 0 && bwm->pos < bwm->len)
+    {
+        return bwm->map[bwm->pos++];
+    }
+    return -1;
+}
+
+static void bw_file_close_from_mmap(bw_file_t *bwfp)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    if (munmap(bwm->map, bwm->len))
+    {
+        perror("munmap failed");
+    }
+    free(bwm);
+    free(bwfp);
+}
+
+static void bw_file_seek_set_from_fp(bw_file_t *bwfp, saidx_t pos)
+{
+    FILE *fp = (FILE *) bwfp->tag;
+    if (fseeko(fp, pos, SEEK_SET))
+    {
+        perror("seek failed");
+    }
+}
+
+static int bw_file_get_char_from_fp(bw_file_t *bwfp)
+{
+    FILE *fp = (FILE *) bwfp->tag;
+    return fgetc(fp);
+}
+
+static void bw_file_close_from_fp(bw_file_t *bwfp)
+{
+    free(bwfp);
+}
+
+bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
+{
+    bw_file_t *bwfp;
+    if (!fp)
+    {
+        return NULL;
+    }
+    bwfp = (bw_file_t *) malloc(sizeof(bw_file_t));
+    if (!bwfp)
+    {
+        return NULL;
+    }
+    if ((flags & BWS_FLAG_MMAP))
+    {
+        bwfp->tag = bw_file_new_mmap(fp);
+        bwfp->seek = bw_file_seek_set_from_mmap;
+        bwfp->getc = bw_file_get_char_from_mmap;
+        bwfp->close = bw_file_close_from_mmap;
+    }
+    else
+    {
+        bwfp->tag = fp;
+        bwfp->seek = bw_file_seek_set_from_fp;
+        bwfp->getc = bw_file_get_char_from_fp;
+        bwfp->close = bw_file_close_from_fp;
+    }
+    return bwfp;
+}
+
 saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
-                  FILE *fpbw,
+                  bw_file_t *fpbw,
                   saidx_t i, int c)
     /* return num of occurrences of c in bw[0 .. i] */
 {
@@ -482,10 +605,10 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
     if (c >= 0)
     {
         c = pcsa->AtoC[c];
-        fseeko(fpbw, 0, SEEK_SET);
+        fpbw->seek(fpbw, 0);
         while (i-- >= 0)
         {
-            rank += fgetc(fpbw) == c;
+            rank += fpbw->getc(fpbw) == c;
         }
     }
 #else
@@ -512,7 +635,7 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
         {
             c = pcsa->AtoC[c];
             pos -= pos > pbws->last;
-            fseeko(fpbw, pos, SEEK_SET);
+            fpbw->seek(fpbw, pos);
             if (i >= pbws->last)
             {
                 i--;
@@ -520,7 +643,7 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
             i -= pos;
             while (i-- >= 0)
             {
-                rank += fgetc(fpbw) == c;
+                rank += fpbw->getc(fpbw) == c;
             }
         }
     }
@@ -532,7 +655,7 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
 }
 
 int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
-               FILE *fpbw,
+               bw_file_t *fpbw,
                const char *key, int klen,
                saidx_t *pleft, saidx_t *pright)
 {

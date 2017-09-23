@@ -120,12 +120,26 @@ struct _bwsidx_t {
 extern int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp);
 extern int bws_free_bws_index(bwsidx_t *pindex);
 
+typedef struct _bw_file_t bw_file_t;
+typedef void (*bw_file_seek_set_f)(bw_file_t *bwfp, saidx_t pos);
+typedef int (*bw_file_get_char_f)(bw_file_t *bwfp);
+typedef void (*bw_file_close_f)(bw_file_t *bwfp);
+
+struct _bw_file_t {
+    void *tag;
+    bw_file_seek_set_f  seek;
+    bw_file_get_char_f  getc;
+    bw_file_close_f     close;
+};
+
+extern bw_file_t *bw_file_new_from_fp(FILE *fp, int flags);
+
 extern saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
-                         FILE *fpbw,
+                         bw_file_t *fpbw,
                          saidx_t i, int c);
 
 extern int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
-                      FILE *fpbw,
+                      bw_file_t *fpbw,
                       const char *key, int klen,
                       saidx_t *pleft, saidx_t *pright);
 
