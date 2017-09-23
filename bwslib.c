@@ -81,13 +81,14 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND((pindex->k = readint(1, fp)) <= CSA_K);
         if ((flags & BWS_FLAG_MMAP) && (sizeof(saidx_t) == pindex->k))
         {
+            off_t pos = ftello(fp);
             if (fseeko(fp, 0, SEEK_END))
             {
                 perror("seek failed");
                 return BWS_RET_MEM_ERR;
             }
             pindex->len = (long) ftello(fp);
-            if (fseeko(fp, 6, SEEK_SET))
+            if (fseeko(fp, pos, SEEK_SET))
             {
                 perror("seek failed");
                 return BWS_RET_MEM_ERR;
@@ -162,6 +163,7 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
             && (sizeof(saidx_t) == pindex->k))
         {
             pindex->ISA = (saidx_t *) ((char *) pindex->map + ftello(fp));
+            fseeko(fp, ((pindex->n - 1) / pindex->d2 + 1)* pindex->k, SEEK_CUR);
         }
         else
         if ((flags & BWS_FLAG_LOAD_ISA))
@@ -182,6 +184,10 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
                     break;
                 }
             }
+        }
+        else
+        {
+            fseeko(fp, ((pindex->n - 1) / pindex->d2 + 1)* pindex->k, SEEK_CUR);
         }
     } while (0);
     if (err)
@@ -252,13 +258,14 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         CHECK_COND((pindex->k = readint(1, fp)) <= CSA_K);
         if ((flags & BWS_FLAG_MMAP) && (sizeof(saidx_t) == pindex->k))
         {
+            off_t pos = ftello(fp);
             if (fseeko(fp, 0, SEEK_END))
             {
                 perror("seek failed");
                 return BWS_RET_MEM_ERR;
             }
             pindex->len = (long) ftello(fp);
-            if (fseeko(fp, 2, SEEK_SET))
+            if (fseeko(fp, pos, SEEK_SET))
             {
                 perror("seek failed");
                 return BWS_RET_MEM_ERR;
