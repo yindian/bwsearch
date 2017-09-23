@@ -466,6 +466,7 @@ int bws_free_bws_index(bwsidx_t *pindex)
 
 typedef struct _bw_mmap_t {
     sauchar_t *map;
+    off_t   base;
     off_t   pos;
     off_t   len;
 } bw_mmap_t;
@@ -497,6 +498,9 @@ static bw_mmap_t *bw_file_new_mmap(FILE *fp)
                 perror("mmap failed");
                 break;
             }
+            bwm->base = bwm->pos;
+            bwm->pos = 0;
+            bwm->len -= bwm->base;
             return bwm;
         } while (0);
         free(bwm);
@@ -522,7 +526,7 @@ static int bw_file_get_char_from_mmap(bw_file_t *bwfp)
     bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
     if (bwm->pos >= 0 && bwm->pos < bwm->len)
     {
-        return bwm->map[bwm->pos++];
+        return bwm->map[bwm->base + bwm->pos++];
     }
     return -1;
 }
@@ -530,7 +534,7 @@ static int bw_file_get_char_from_mmap(bw_file_t *bwfp)
 static void bw_file_close_from_mmap(bw_file_t *bwfp)
 {
     bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
-    if (munmap(bwm->map, bwm->len))
+    if (munmap(bwm->map, bwm->base + bwm->len))
     {
         perror("munmap failed");
     }
