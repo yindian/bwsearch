@@ -886,30 +886,24 @@ sauchar_t *bws_substr(csaidx_t *pcsa, bwsidx_t *pbws,
     s = (sauchar_t *) malloc(len + 1);
     if (s)
     {
-        saidx_t l, size, half;
-        saidx_t *C;
+        /*
+         * BW[j] = T[SA[j] - 1] => T[i] = BW[ISA[i + 1]]
+         * LF[j] = ISA[SA[j] - 1] => ISA[i] = LF[ISA[i + 1]]
+         */
         sauchar_t *p = s + len;
         *p-- = 0;
         i += len;
         i = bws_isa(pcsa, pbws,
                     fpbw,
-                    i - 1) + 1;
-        C = pcsa->K + 2;
+                    i);
         do
         {
-            size = pcsa->m;
-            for (l = 0, half = size >> 1; size; size = half, half >>= 1)
-            {
-                if (C[l + half] < i)
-                {
-                    l += half + 1;
-                    half -= (size & 1) ^ 1;
-                }
-            }
-            *p-- = pcsa->AtoC[l];
+            *p-- = bws_bw(pcsa, pbws,
+                          fpbw,
+                          i);
             i = bws_lf(pcsa, pbws,
                        fpbw,
-                       i - 1) + 1;
+                       i);
         } while (--len);
     }
     return s;
