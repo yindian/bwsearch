@@ -88,6 +88,7 @@ struct _csaidx_t {
     saidx_t d;
     saidx_t d2;
     saidx_t n;
+    saidx_t n_sub_1_div_d2;
     unsigned int k;
     unsigned int s;
     int m;

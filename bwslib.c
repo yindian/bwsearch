@@ -226,23 +226,24 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == CSA_ID_ISA);
         CHECK_COND(readint(1, fp) == pindex->k);
         CHECK_COND(readint(pindex->k, fp) == pindex->d2);
+        pindex->n_sub_1_div_d2 = (pindex->n - 1) / pindex->d2;
         if ((flags & BWS_FLAG_LOAD_ISA) && (flags & BWS_FLAG_MMAP)
             )
         {
             pindex->ISA = (saidx_t *) ((char *) pindex->map + ftello(fp));
-            fseeko(fp, ((pindex->n - 1) / pindex->d2 + 1)* pindex->k, SEEK_CUR);
+            fseeko(fp, (pindex->n_sub_1_div_d2 + 1) * pindex->k, SEEK_CUR);
         }
         else
         if ((flags & BWS_FLAG_LOAD_ISA))
         {
-            pindex->ISA = (saidx_t *) malloc(((pindex->n - 1) / pindex->d2 + 1)
+            pindex->ISA = (saidx_t *) malloc((pindex->n_sub_1_div_d2 + 1)
                                              * sizeof(saidx_t));
             if (!pindex->ISA)
             {
                 perror("malloc failed");
                 return BWS_RET_MEM_ERR;
             }
-            for (i = 0; i <= (pindex->n - 1) / pindex->d2; i++)
+            for (i = 0; i <= pindex->n_sub_1_div_d2; i++)
             {
                 CHECK_COND((pindex->ISA[i]
                             = (saidx_t) readint(pindex->k, fp)) > 0);
@@ -254,7 +255,7 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         }
         else
         {
-            fseeko(fp, ((pindex->n - 1) / pindex->d2 + 1)* pindex->k, SEEK_CUR);
+            fseeko(fp, (pindex->n_sub_1_div_d2 + 1) * pindex->k, SEEK_CUR);
         }
     } while (0);
     if (err)
@@ -710,7 +711,7 @@ saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
      * SA[0] = n => ISA[n] = 0
      */
     j = (i - 1) / pcsa->d2;
-    if (j == (pcsa->n - 1) / pcsa->d2)
+    if (j == pcsa->n_sub_1_div_d2)
     {
         v = 0;
         j = pcsa->n;

@@ -77,7 +77,7 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
 #ifdef _OPENMP
 #pragma omp parallel for default(shared) private(i, j, p)
 #endif
-  for (j = 0; j <= (n - 1) / pindex->d2; ++j)
+  for (j = 0; j <= pindex->n_sub_1_div_d2; ++j)
   {
       int k = (j + 1) * pindex->d2;
       if (n < k)
