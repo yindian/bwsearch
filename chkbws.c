@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <ctype.h>
 #include "bwscommon.h"
 #include "bwslib.h"
 
@@ -37,14 +38,31 @@ int main(int argc, char *argv[])
 #include "bws.i"
     if (argc > 2 && !strcmp(argv[2], "-p"))
     {
+        int c;
         TICK;
         printf("SA\tISA\tLF\t");
+        printf("T\tBW\t");
         printf("i\\rank");
         for (c = 0; c < csa.m; c++)
         {
             printf("\t%c", csa.AtoC[c]);
         }
         printf("\n");
+#define PRINT_C_TAB(_c) do\
+        {\
+            if (_c == -1)\
+            {\
+                printf("$\t");\
+            }\
+            else if (isalnum(_c) || (ispunct(_c) && _c != '$'))\
+            {\
+                printf("%c\t", _c);\
+            }\
+            else\
+            {\
+                printf("\\x%02X\t", _c);\
+            }\
+        } while (0)
         for (i = 0; i <= bws.n; i++)
         {
             printf("%d\t%d\t%d\t",
@@ -57,6 +75,14 @@ int main(int argc, char *argv[])
                    bws_lf(&csa, &bws,
                           bwfp,
                           i));
+            c = bws_t(&csa, &bws,
+                      bwfp,
+                      i);
+            PRINT_C_TAB(c);
+            c = bws_bw(&csa, &bws,
+                       bwfp,
+                       i);
+            PRINT_C_TAB(c);
             printf("%d", i);
             for (c = 0; c < csa.m; c++)
             {

@@ -739,6 +739,49 @@ saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
     return v;
 }
 
+int bws_t(csaidx_t *pcsa, bwsidx_t *pbws,
+          bw_file_t *fpbw,
+          saidx_t i)
+{
+    saidx_t j, l, size, half;
+    int c;
+    /*
+     * F[i] = T[SA[i]] => T[i] = F[ISA[i]]
+     */
+    j = bws_isa(pcsa, pbws,
+                fpbw,
+                i);
+    if (j == 0)
+    {
+        return -1;
+    }
+    size = pcsa->m;
+    for (l = 0, half = size >> 1; size; size = half, half >>= 1)
+    {
+        if (pcsa->K[l + half + 2] - 1 < j)
+        {
+            l += half + 1;
+            half -= (size & 1) ^ 1;
+        }
+    }
+    c = pcsa->AtoC[l];
+    return c;
+}
+
+int bws_bw(csaidx_t *pcsa, bwsidx_t *pbws,
+           bw_file_t *fpbw,
+           saidx_t i)
+{
+    int c;
+    if (i == pbws->last)
+    {
+        return -1;
+    }
+    fpbw->seek(fpbw, i - (i > pbws->last));
+    c = fpbw->getc(fpbw);
+    return c;
+}
+
 int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                bw_file_t *fpbw,
                const char *key, int klen,
