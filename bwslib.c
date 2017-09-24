@@ -695,7 +695,12 @@ saidx_t bws_sa(csaidx_t *pcsa, bwsidx_t *pbws,
                    i);
     }
     i /= pcsa->d;
-    return (GET_SAIDX(*pcsa, SA, i) + v) % (pcsa->n + 1);
+    v += GET_SAIDX(*pcsa, SA, i);
+    if (v > pcsa->n)
+    {
+        v -= pcsa->n + 1;
+    }
+    return v;
 }
 
 saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
@@ -710,6 +715,10 @@ saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
      *        = ...
      * SA[0] = n => ISA[n] = 0
      */
+    if (i == 0)
+    {
+        return pbws->last;
+    }
     j = (i - 1) / pcsa->d2;
     if (j == pcsa->n_sub_1_div_d2)
     {
