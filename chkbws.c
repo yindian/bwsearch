@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
     if (argc > 2 && !strcmp(argv[2], "-p"))
     {
         TICK;
+        printf("SA\tISA\tLF\t");
         printf("i\\rank");
         for (c = 0; c < csa.m; c++)
         {
@@ -46,6 +47,16 @@ int main(int argc, char *argv[])
         printf("\n");
         for (i = 0; i <= bws.n; i++)
         {
+            printf("%d\t%d\t%d\t",
+                   bws_sa(&csa, &bws,
+                          bwfp,
+                          i),
+                   bws_isa(&csa, &bws,
+                           bwfp,
+                           i),
+                   bws_lf(&csa, &bws,
+                          bwfp,
+                          i));
             printf("%d", i);
             for (c = 0; c < csa.m; c++)
             {

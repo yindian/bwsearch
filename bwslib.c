@@ -658,6 +658,77 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
     return rank;
 }
 
+saidx_t bws_lf(csaidx_t *pcsa, bwsidx_t *pbws,
+               bw_file_t *fpbw,
+               saidx_t i)
+{
+    int c;
+    if (i == pbws->last)
+    {
+        return 0;
+    }
+    fpbw->seek(fpbw, i - (i > pbws->last));
+    c = fpbw->getc(fpbw);
+    c = pcsa->CtoA[c];
+    /* c = BW[i], LF[i] = C[c] + rank_c(BW, i) */
+    return pcsa->K[c + 1] - 1 + bws_rankc(pcsa, pbws,
+                                          fpbw,
+                                          i, c);
+}
+
+saidx_t bws_sa(csaidx_t *pcsa, bwsidx_t *pbws,
+               bw_file_t *fpbw,
+               saidx_t i)
+{
+    saidx_t v;
+    /*
+     * LF[i] = ISA[SA[i] - 1]
+     * SA[i] = SA[LF[i]] + 1
+     *       = SA[LF[LF[i]] + 2
+     *       = ...
+     */
+    for (v = 0; i % pcsa->d; v++)
+    {
+        i = bws_lf(pcsa, pbws,
+                   fpbw,
+                   i);
+    }
+    i /= pcsa->d;
+    return (GET_SAIDX(*pcsa, SA, i) + v) % (pcsa->n + 1);
+}
+
+saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
+                bw_file_t *fpbw,
+                saidx_t i)
+{
+    saidx_t j, v;
+    /*
+     * LF[j] = ISA[SA[j] - 1], i = SA[j] - 1
+     * ISA[i] = LF[ISA[i + 1]]
+     *        = LF[LF[ISA[i + 2]]]
+     *        = ...
+     * SA[0] = n => ISA[n] = 0
+     */
+    j = (i - 1) / pcsa->d2;
+    if (j == (pcsa->n - 1) / pcsa->d2)
+    {
+        v = 0;
+        j = pcsa->n;
+    }
+    else
+    {
+        v = GET_SAIDX(*pcsa, ISA, j + 1);
+        j = (j + 1) * pcsa->d2;
+    }
+    for (; j > i; j--)
+    {
+        v = bws_lf(pcsa, pbws,
+                   fpbw,
+                   v);
+    }
+    return v;
+}
+
 int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                bw_file_t *fpbw,
                const char *key, int klen,

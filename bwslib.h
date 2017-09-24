@@ -138,10 +138,21 @@ extern saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
                          bw_file_t *fpbw,
                          saidx_t i, int c);
 
+extern saidx_t bws_lf(csaidx_t *pcsa, bwsidx_t *pbws,
+                      bw_file_t *fpbw,
+                      saidx_t i);
+
+extern saidx_t bws_sa(csaidx_t *pcsa, bwsidx_t *pbws,
+                      bw_file_t *fpbw,
+                      saidx_t i);
+
+extern saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
+                       bw_file_t *fpbw,
+                       saidx_t i);
+
 extern int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                       bw_file_t *fpbw,
                       const char *key, int klen,
                       saidx_t *pleft, saidx_t *pright);
-
 #endif
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
