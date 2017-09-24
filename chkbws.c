@@ -128,6 +128,23 @@ int main(int argc, char *argv[])
     memset(C, 0, sizeof(C));
     for (i = 0; i <= bws.n; i++)
     {
+#if 1
+        if (bws_isa(&csa, &bws,
+                    bwfp,
+                    i) !=
+            bws_isa_r(&csa, &bws,
+                      bwfp,
+                      i))
+        {
+            printf("Mismatched ISA[%d] %d != %d\n", i,
+                   bws_isa(&csa, &bws,
+                           bwfp,
+                           i),
+                   bws_isa_r(&csa, &bws,
+                             bwfp,
+                             i));
+        }
+#endif
         if (i < bws.last)
         {
             C[csa.CtoA[BW[i]]]++;

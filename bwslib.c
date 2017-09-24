@@ -227,6 +227,16 @@ int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp)
         CHECK_COND(readint(1, fp) == pindex->k);
         CHECK_COND(readint(pindex->k, fp) == pindex->d2);
         pindex->n_sub_1_div_d2 = (pindex->n - 1) / pindex->d2;
+        if ((flags & BWS_FLAG_LOAD_ISA))
+        {
+            pindex->cache.isa_cache = (saidx_t *) malloc(pindex->d2
+                                                         * sizeof(saidx_t));
+            if (!pindex->cache.isa_cache)
+            {
+                perror("malloc failed");
+                return BWS_RET_MEM_ERR;
+            }
+        }
         if ((flags & BWS_FLAG_LOAD_ISA) && (flags & BWS_FLAG_MMAP)
             )
         {
@@ -270,6 +280,11 @@ int bws_free_csa_index(csaidx_t *pindex)
     if (!pindex)
     {
         return BWS_RET_INV_ARG;
+    }
+    if (pindex->cache.isa_cache)
+    {
+        free(pindex->cache.isa_cache);
+        pindex->cache.isa_cache = NULL;
     }
     pindex->get = NULL;
     if (pindex->map)
@@ -706,6 +721,75 @@ saidx_t bws_sa(csaidx_t *pcsa, bwsidx_t *pbws,
 saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
                 bw_file_t *fpbw,
                 saidx_t i)
+{
+    saidx_t j, v;
+    /*
+     * LF[j] = ISA[SA[j] - 1], i = SA[j] - 1
+     * ISA[i] = LF[ISA[i + 1]]
+     *        = LF[LF[ISA[i + 2]]]
+     *        = ...
+     * SA[0] = n => ISA[n] = 0
+     */
+    if (i == 0)
+    {
+        return pbws->last;
+    }
+    j = (i - 1) / pcsa->d2;
+    if (j + 1 == pcsa->cache.isa_blkid)
+    {
+        if (j == pcsa->n_sub_1_div_d2)
+        {
+            if (pcsa->n - i < pcsa->cache.isa_count)
+            {
+                return pcsa->cache.isa_cache[pcsa->n - i];
+            }
+            v = pcsa->cache.isa_cache[pcsa->cache.isa_count - 1];
+            j = pcsa->n - pcsa->cache.isa_count + 1;
+        }
+        else
+        {
+            j = (j + 1) * pcsa->d2;
+            if (j - i < pcsa->cache.isa_count)
+            {
+                return pcsa->cache.isa_cache[j - i];
+            }
+            v = pcsa->cache.isa_cache[pcsa->cache.isa_count - 1];
+            j -= pcsa->cache.isa_count - 1;
+        }
+    }
+    else
+    {
+        pcsa->cache.isa_blkid = j + 1;
+        pcsa->cache.isa_count = 0;
+    }
+    if (pcsa->cache.isa_count)
+    {
+    }
+    else
+    if (j == pcsa->n_sub_1_div_d2)
+    {
+        v = 0;
+        j = pcsa->n;
+    }
+    else
+    {
+        v = GET_SAIDX(*pcsa, ISA, j + 1);
+        j = (j + 1) * pcsa->d2;
+    }
+    for (; j > i; j--)
+    {
+        pcsa->cache.isa_cache[pcsa->cache.isa_count++] = v;
+        v = bws_lf(pcsa, pbws,
+                   fpbw,
+                   v);
+    }
+    pcsa->cache.isa_cache[pcsa->cache.isa_count++] = v;
+    return v;
+}
+
+saidx_t bws_isa_r(csaidx_t *pcsa, bwsidx_t *pbws,
+                  bw_file_t *fpbw,
+                  saidx_t i)
 {
     saidx_t j, v;
     /*

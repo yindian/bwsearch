@@ -96,6 +96,11 @@ struct _csaidx_t {
     long len;
     void *map;
     get_saidx_f get;
+    struct {
+        saidx_t isa_blkid;
+        saidx_t isa_count;
+        saidx_t *isa_cache;
+    } cache;
 };
 
 extern int bws_load_csa_index(csaidx_t *pindex, int flags, FILE *fp);
@@ -150,6 +155,10 @@ extern saidx_t bws_sa(csaidx_t *pcsa, bwsidx_t *pbws,
 extern saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
                        bw_file_t *fpbw,
                        saidx_t i);
+
+extern saidx_t bws_isa_r(csaidx_t *pcsa, bwsidx_t *pbws,
+                         bw_file_t *fpbw,
+                         saidx_t i);
 
 extern int bws_t(csaidx_t *pcsa, bwsidx_t *pbws,
                  bw_file_t *fpbw,
