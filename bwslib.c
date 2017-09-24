@@ -866,6 +866,34 @@ int bws_bw(csaidx_t *pcsa, bwsidx_t *pbws,
     return c;
 }
 
+sauchar_t *bws_substr(csaidx_t *pcsa, bwsidx_t *pbws,
+                      bw_file_t *fpbw,
+                      saidx_t i, int len)
+{
+    sauchar_t *s;
+    if (!pcsa || !pbws || !fpbw || i >= pbws->n)
+    {
+        return NULL;
+    }
+    if (i + len > pbws->n)
+    {
+        len = pbws->n - i;
+    }
+    s = (sauchar_t *) malloc(len + 1);
+    if (s)
+    {
+        sauchar_t *p = s;
+        while (len--)
+        {
+            *p++ = bws_t(pcsa, pbws,
+                         fpbw,
+                         i++);
+        }
+        *p = 0;
+    }
+    return s;
+}
+
 int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                bw_file_t *fpbw,
                const char *key, int klen,

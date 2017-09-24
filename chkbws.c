@@ -7,6 +7,10 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ctype.h>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
 #include "bwscommon.h"
 #include "bwslib.h"
 
@@ -123,6 +127,7 @@ int main(int argc, char *argv[])
         return FAIL_RET;
     }
     TOCK;
+#if 0
     fprintf(stderr, "Checking rank_[1 .. %d](BW, 0 .. %d) .", csa.m, bws.n);
     TICK;
     memset(C, 0, sizeof(C));
@@ -170,9 +175,20 @@ int main(int argc, char *argv[])
             fprintf(stderr, ".");
         }
     }
+    fprintf(stderr, " ");
+    TOCK;
+#endif
+    fprintf(stderr, "Computing T[0 .. %d] ... ", bws.n);
+#ifdef _WIN32
+    _setmode(_fileno(stdout), _O_BINARY);
+#endif
+    TICK;
+    fwrite(bws_substr(&csa, &bws,
+                      bwfp,
+                      0, bws.n),
+           1, bws.n, stdout);
     bwfp->close(bwfp);
     fclose(fp);
-    fprintf(stderr, " ");
     TOCK;
     return 0;
 }

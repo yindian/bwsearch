@@ -168,6 +168,10 @@ extern int bws_bw(csaidx_t *pcsa, bwsidx_t *pbws,
                   bw_file_t *fpbw,
                   saidx_t i);
 
+extern sauchar_t *bws_substr(csaidx_t *pcsa, bwsidx_t *pbws,
+                             bw_file_t *fpbw,
+                             saidx_t i, int len);
+
 extern int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                       bw_file_t *fpbw,
                       const char *key, int klen,
