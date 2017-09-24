@@ -764,6 +764,7 @@ saidx_t bws_isa(csaidx_t *pcsa, bwsidx_t *pbws,
     }
     if (pcsa->cache.isa_count)
     {
+        pcsa->cache.isa_count--;
     }
     else
     if (j == pcsa->n_sub_1_div_d2)
@@ -871,7 +872,7 @@ sauchar_t *bws_substr(csaidx_t *pcsa, bwsidx_t *pbws,
                       saidx_t i, int len)
 {
     sauchar_t *s;
-    if (!pcsa || !pbws || !fpbw || i >= pbws->n)
+    if (!pcsa || !pbws || !fpbw || i >= pbws->n || len <= 0)
     {
         return NULL;
     }
@@ -882,14 +883,31 @@ sauchar_t *bws_substr(csaidx_t *pcsa, bwsidx_t *pbws,
     s = (sauchar_t *) malloc(len + 1);
     if (s)
     {
-        sauchar_t *p = s;
-        while (len--)
+        saidx_t l, size, half;
+        saidx_t *C;
+        sauchar_t *p = s + len;
+        *p-- = 0;
+        i += len;
+        i = bws_isa(pcsa, pbws,
+                    fpbw,
+                    i - 1) + 1;
+        C = pcsa->K + 2;
+        do
         {
-            *p++ = bws_t(pcsa, pbws,
-                         fpbw,
-                         i++);
-        }
-        *p = 0;
+            size = pcsa->m;
+            for (l = 0, half = size >> 1; size; size = half, half >>= 1)
+            {
+                if (C[l + half] < i)
+                {
+                    l += half + 1;
+                    half -= (size & 1) ^ 1;
+                }
+            }
+            *p-- = pcsa->AtoC[l];
+            i = bws_lf(pcsa, pbws,
+                       fpbw,
+                       i - 1) + 1;
+        } while (--len);
     }
     return s;
 }
