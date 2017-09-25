@@ -42,7 +42,6 @@ int main(int argc, char *argv[])
 #include "bws.i"
     if (argc > 2 && !strcmp(argv[2], "-p"))
     {
-        int c;
         TICK;
         printf("SA\tISA\tLF\t");
         printf("T\tBW\t");
@@ -177,6 +176,8 @@ int main(int argc, char *argv[])
     }
     fprintf(stderr, " ");
     TOCK;
+#else
+    (void) C;
 #endif
     fprintf(stderr, "Computing T[0 .. %d] ... ", bws.n);
 #ifdef _WIN32

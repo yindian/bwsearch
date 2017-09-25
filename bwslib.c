@@ -17,6 +17,9 @@
 #else
 #include <sys/mman.h>
 #endif
+#ifdef getc
+#undef getc
+#endif
 
 #if 0
 #define DEBUG_BWS
