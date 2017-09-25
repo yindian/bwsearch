@@ -108,6 +108,7 @@ extern int bws_free_csa_index(csaidx_t *pindex);
 
 struct _bwsidx_t {
     unsigned short *lRankC;
+    sauchar_t *lBW;
     saidx_t *lbRankC;
     saidx_t n;
     saidx_t last;

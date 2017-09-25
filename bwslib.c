@@ -391,12 +391,14 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         pindex->lb = 1 << pindex->logLB;
         CHECK_COND((pindex->m = (int) readint(pindex->k, fp)) >= 0);
         l = pindex->m * (pindex->n / pindex->lb + 1);
-        c = pindex->m * (pindex->n / pindex->l + 1);
+        c = (pindex->n / pindex->l + 1);
         if ((flags & BWS_FLAG_LOAD_RANKC) && (flags & BWS_FLAG_MMAP)
             )
         {
             pindex->lRankC = (unsigned short *)((char *)pindex->map+ftello(fp));
             fseeko(fp, c * 2, SEEK_CUR);
+            pindex->lBW = (sauchar_t *)((char *)pindex->map+ftello(fp));
+            fseeko(fp, c, SEEK_CUR);
             pindex->lbRankC = (saidx_t *) ((char *)pindex->map+ftello(fp));
             fseeko(fp, l * pindex->k, SEEK_CUR);
         }
@@ -405,6 +407,12 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
         {
             pindex->lRankC = (unsigned short *) malloc(c * sizeof(saidx_t));
             if (!pindex->lRankC)
+            {
+                perror("malloc failed");
+                return BWS_RET_MEM_ERR;
+            }
+            pindex->lBW = (sauchar_t *) malloc(c * sizeof(sauchar_t));
+            if (!pindex->lBW)
             {
                 perror("malloc failed");
                 return BWS_RET_MEM_ERR;
@@ -419,6 +427,15 @@ int bws_load_bws_index(bwsidx_t *pindex, int flags, FILE *fp)
             {
                 CHECK_COND((pindex->lRankC[i]
                             = (unsigned short) readint(2, fp)) >= 0);
+                if (err)
+                {
+                    break;
+                }
+            }
+            for (i = 0; i < c; i++)
+            {
+                CHECK_COND((pindex->lBW[i]
+                            = (sauchar_t) readint(1, fp)) >= 0);
                 if (err)
                 {
                     break;
@@ -474,6 +491,11 @@ int bws_free_bws_index(bwsidx_t *pindex)
     {
         free(pindex->lRankC);
         pindex->lRankC = NULL;
+    }
+    if (pindex->lBW)
+    {
+        free(pindex->lBW);
+        pindex->lBW = NULL;
     }
     if (pindex->lbRankC)
     {
@@ -642,21 +664,25 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
     else
     {
         saidx_t pos = 0;
+        saidx_t j;
         saidx_t k;
         if (i >= pbws->lb)
         {
             rank = pbws->lbRankC[((i >> pbws->logLB) - 1) * pcsa->m + c];
             pos = (i >> pbws->logLB) << pbws->logLB; /* i & ~(pbws->lb - 1); */
         }
-        i -= pbws->l;
-        for (k = pos/pbws->l * pcsa->m; pos <= i; pos += pbws->l, k += pcsa->m)
+        c = pcsa->AtoC[c];
+        for (j = i / pbws->l, k = j * pbws->l; k > pos; k -= pbws->l, j--)
         {
-            rank += pbws->lRankC[k + c];
+            if (pbws->lBW[j] == c)
+            {
+                rank += pbws->lRankC[j];
+                pos = k;
+                break;
+            }
         }
-        i += pbws->l;
         if (pos <= i)
         {
-            c = pcsa->AtoC[c];
             pos -= pos > pbws->last;
             fpbw->seek(fpbw, pos);
             if (i >= pbws->last)

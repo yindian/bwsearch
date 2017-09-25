@@ -14,8 +14,8 @@
 #define CSA_K 4        /* #bytes of integer */
 #define CSA_D 128      /* interval between two SA values stored explicitly */
 #define CSA_D2 128/* interval between two inverse SA values stored explicitly */
-#define CSA_L 8192     /* interval between two psi values stored explicitly */
-#define CSA_LB 65536
+#define CSA_L 128      /* interval between two rank values stored explicitly */
+#define CSA_LB 16384
 #define CSA_SIGMA 256  /* alphabet size */
 
 #endif

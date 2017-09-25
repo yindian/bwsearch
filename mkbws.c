@@ -285,6 +285,7 @@ int main(int argc, char *argv[])
         off_t C[CSA_SIGMA];
         off_t D[CSA_SIGMA];
         off_t *buf;
+        sauchar_t *bws;
         int l, c;
         buf = (off_t *) malloc(sizeof(off_t) * m * (len / CSA_LB + 1));
         if (!buf)
@@ -293,11 +294,20 @@ int main(int argc, char *argv[])
             CLEAN_UP;
             return FAIL_RET;
         }
+        bws = (sauchar_t *) malloc(sizeof(sauchar_t) * (len / CSA_L + 1));
+        if (!bws)
+        {
+            fprintf(stderr, "malloc failed\n");
+            free(buf);
+            CLEAN_UP;
+            return FAIL_RET;
+        }
         memset(C, 0, sizeof(C));
         l = c = 0;
         for (i = 0; i <= len; i += CSA_LB)
         {
             int k, n;
+            memset(D, 0, sizeof(D));
             for (k = 0; k < CSA_LB; k += CSA_L)
             {
                 if (i + k > len)
@@ -309,7 +319,6 @@ int main(int argc, char *argv[])
                 {
                     n = len + 1;
                 }
-                memset(D, 0, sizeof(D));
                 if (n <= last)
                 {
                     j = i + k;
@@ -324,24 +333,25 @@ int main(int argc, char *argv[])
                     --n;
                     j = i + k;
                 }
+                bws[c++] = T[j];
+                writeint(2, D[T[j]], fp);
                 for (; j < n; j++)
                 {
                     ++D[T[j]];
                 }
-                for (j = 0; j < m; j++)
-                {
-                    writeint(2, D[AtoC[j]], fp);
-                    C[j] += D[AtoC[j]];
-                    ++c;
-                }
             }
             for (j = 0; j < m; j++)
             {
+                C[j] += D[AtoC[j]];
                 buf[l++] = C[j];
             }
         }
         assert(l == m * (len / CSA_LB + 1));
-        assert(c == m * (len / CSA_L + 1));
+        assert(c == (len / CSA_L + 1));
+        for (j = 0; j < c; j++)
+        {
+            writeint(1, bws[j], fp);
+        }
         for (j = 0; j < l; j++)
         {
             writeint(CSA_K, buf[j], fp);
