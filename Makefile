@@ -35,7 +35,8 @@ bwsearch_CFLAGS += -g
 ifneq ($(findstring --enable-libgomp,$(CC_V))$(findstring --enable-gnu,$(CC_V)),)
 bwsearch_CFLAGS += -fopenmp
 endif
-bwsearch_SOURCES = $(filter-out %.a, $(foreach prog,$(bwsearch_TARGETS),$(value $(prog)_SRC)))
+uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
+bwsearch_SOURCES = $(call uniq,$(filter-out %.a, $(foreach prog,$(bwsearch_TARGETS),$(value $(prog)_SRC))))
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c bwslib.c bwslib2.c libdivsufsort.a
 bws_SRC = bws.c bwslib.c
