@@ -672,12 +672,12 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
             pos = (i >> pbws->logLB) << pbws->logLB; /* i & ~(pbws->lb - 1); */
         }
         c = pcsa->AtoC[c];
-        for (j = i / pbws->l, k = j * pbws->l; k > pos; k -= pbws->l, j--)
+        for (j = i / pbws->l, k = i - i % pbws->l; k >= pos; k -= pbws->l, j--)
         {
             if (pbws->lBW[j] == c)
             {
-                rank += pbws->lRankC[j];
-                pos = k;
+                rank += pbws->lRankC[j] + 1;
+                pos = k + 1;
                 break;
             }
         }
