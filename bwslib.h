@@ -75,7 +75,7 @@ typedef saidx_t (*get_saidx_f)(saidx_t *base, int idx, unsigned int k);
 typedef unsigned short (*get_ushort_f)(unsigned short *base, int idx);
 #define GET_U16(_struct, _field, _idx) ((_struct).get16 ?\
                                         (_struct).get16((_struct)._field,\
-                                                        _idx), (_struct).k)\
+                                                        _idx)\
                                          : (_struct)._field[_idx])
 
 struct _csaidx_t {

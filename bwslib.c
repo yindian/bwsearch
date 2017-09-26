@@ -668,7 +668,8 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
         saidx_t k;
         if (i >= pbws->lb)
         {
-            rank = pbws->lbRankC[((i >> pbws->logLB) - 1) * pcsa->m + c];
+            rank = GET_SAIDX(*pbws, lbRankC,
+                             ((i >> pbws->logLB) - 1) * pcsa->m + c);
             pos = (i >> pbws->logLB) << pbws->logLB; /* i & ~(pbws->lb - 1); */
         }
         c = pcsa->AtoC[c];
@@ -676,7 +677,7 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
         {
             if (pbws->lBW[j] == c)
             {
-                rank += pbws->lRankC[j] + 1;
+                rank += GET_U16(*pbws, lRankC, j) + 1;
                 pos = k + 1;
                 break;
             }
