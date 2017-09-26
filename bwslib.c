@@ -510,6 +510,7 @@ typedef struct _bw_mmap_t {
     off_t   base;
     off_t   pos;
     off_t   len;
+    int     duped;
 } bw_mmap_t;
 
 static bw_mmap_t *bw_file_new_mmap(FILE *fp)
@@ -542,6 +543,7 @@ static bw_mmap_t *bw_file_new_mmap(FILE *fp)
             bwm->base = bwm->pos;
             bwm->pos = 0;
             bwm->len -= bwm->base;
+            bwm->duped = 0;
             return bwm;
         } while (0);
         free(bwm);
@@ -575,12 +577,39 @@ static int bw_file_get_char_from_mmap(bw_file_t *bwfp)
 static void bw_file_close_from_mmap(bw_file_t *bwfp)
 {
     bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
-    if (munmap(bwm->map, bwm->base + bwm->len))
+    if (!bwm->duped && munmap(bwm->map, bwm->base + bwm->len))
     {
         perror("munmap failed");
     }
     free(bwm);
     free(bwfp);
+}
+
+static bw_file_t *bw_file_dup_from_mmap(bw_file_t *bwfp)
+{
+    bw_file_t *bwgp;
+    bw_mmap_t *bmw;
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    if (!bwm)
+    {
+        return NULL;
+    }
+    bwgp = (bw_file_t *) malloc(sizeof(bw_file_t));
+    if (!bwgp)
+    {
+        return NULL;
+    }
+    bmw = (bw_mmap_t *) malloc(sizeof(bw_mmap_t));
+    if (!bmw)
+    {
+        free(bwgp);
+        return NULL;
+    }
+    *bmw = *bwm;
+    bmw->duped = 1;
+    *bwgp = *bwfp;
+    bwgp->tag = bmw;
+    return bwgp;
 }
 
 static void bw_file_seek_set_from_fp(bw_file_t *bwfp, saidx_t pos)
@@ -603,6 +632,13 @@ static void bw_file_close_from_fp(bw_file_t *bwfp)
     free(bwfp);
 }
 
+static bw_file_t *bw_file_dup_from_fp(bw_file_t *bwfp)
+{
+    FILE *fp = (FILE *) bwfp->tag;
+    FILE *gp = fdopen(dup(fileno(fp)), "rb");
+    return bw_file_new_from_fp(gp, 0);
+}
+
 bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
 {
     bw_file_t *bwfp;
@@ -621,6 +657,7 @@ bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
         bwfp->seek = bw_file_seek_set_from_mmap;
         bwfp->getc = bw_file_get_char_from_mmap;
         bwfp->close = bw_file_close_from_mmap;
+        bwfp->dup = bw_file_dup_from_mmap;
     }
     else
     {
@@ -628,6 +665,7 @@ bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
         bwfp->seek = bw_file_seek_set_from_fp;
         bwfp->getc = bw_file_get_char_from_fp;
         bwfp->close = bw_file_close_from_fp;
+        bwfp->dup = bw_file_dup_from_fp;
     }
     return bwfp;
 }

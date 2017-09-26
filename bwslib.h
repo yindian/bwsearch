@@ -131,12 +131,14 @@ typedef struct _bw_file_t bw_file_t;
 typedef void (*bw_file_seek_set_f)(bw_file_t *bwfp, saidx_t pos);
 typedef int (*bw_file_get_char_f)(bw_file_t *bwfp);
 typedef void (*bw_file_close_f)(bw_file_t *bwfp);
+typedef bw_file_t *(*bw_file_dup_f)(bw_file_t *bwfp);
 
 struct _bw_file_t {
     void *tag;
     bw_file_seek_set_f  seek;
     bw_file_get_char_f  getc;
     bw_file_close_f     close;
+    bw_file_dup_f       dup;
 };
 
 extern bw_file_t *bw_file_new_from_fp(FILE *fp, int flags);
@@ -172,6 +174,10 @@ extern int bws_bw(csaidx_t *pcsa, bwsidx_t *pbws,
 extern sauchar_t *bws_substr(csaidx_t *pcsa, bwsidx_t *pbws,
                              bw_file_t *fpbw,
                              saidx_t i, int len);
+
+extern sauchar_t *bws_substr_mt(csaidx_t *pcsa, bwsidx_t *pbws,
+                                bw_file_t *fpbw,
+                                saidx_t i, int len);
 
 extern int bws_search(csaidx_t *pcsa, bwsidx_t *pbws,
                       bw_file_t *fpbw,

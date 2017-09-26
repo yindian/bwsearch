@@ -40,7 +40,7 @@ bwsearch_SOURCES = $(call uniq,$(filter-out %.a, $(foreach prog,$(bwsearch_TARGE
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c bwslib.c bwslib2.c libdivsufsort.a
 bws_SRC = bws.c bwslib.c
-chkbws_SRC = chkbws.c bwslib.c
+chkbws_SRC = chkbws.c bwslib.c bwslib2.c
 
 DEP_DIR = deps
 OBJ_DIR = objs
@@ -92,7 +92,6 @@ $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): $(libdivsufsort_GEN_HDR)
 $(bwsearch_SOURCES:%.c=$(OBJ_DIR)/%.o): Makefile
 $(bwsearch_SOURCES:%.c=$(OBJ_DIR)/%.o): CFLAGS += $(bwsearch_CFLAGS)
 
-$(BIN_DIR)/libdivsufsort.a: CFLAGS += $(libdivsufsort_CFLAGS)
 $(BIN_DIR)/libdivsufsort.a: $(call src2obj, $(libdivsufsort_a_SRC))
 	@mkdir -p $(@D)
 	$(AR) $(ARFLAGS) $@ $^
@@ -109,7 +108,7 @@ endif
 
 $(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(libdivsufsort_EXAMPLES))): CFLAGS += $(libdivsufsort_CFLAGS)
 
-$(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter libdivsufsort.a,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(libdivsufsort_LDFLAGS)
+$(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter libdivsufsort.a bwslib2.c,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(libdivsufsort_LDFLAGS)
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(eval $(BIN_DIR)/$(prog)$(DOT_EXE): $(call src2obj, $(value $(prog)_SRC))))
 $(filter-out %.a,$(TARGETS)):
 	@mkdir -p $(@D)

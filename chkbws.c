@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
     TICK;
-    fwrite(bws_substr(&csa, &bws,
+    fwrite(bws_substr_mt(&csa, &bws,
                       bwfp,
                       0, bws.n),
            1, bws.n, stdout);

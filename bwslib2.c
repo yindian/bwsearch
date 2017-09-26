@@ -99,4 +99,76 @@ bws_inverse_bw_transform(const sauchar_t *T, sauchar_t *U, saidx_t *A,
   return 0;
 }
 
+sauchar_t *bws_substr_mt(csaidx_t *pcsa, bwsidx_t *pbws,
+                         bw_file_t *fpbw,
+                         saidx_t i, int len)
+{
+    sauchar_t *s;
+    if (!pcsa || !pbws || !fpbw || i >= pbws->n || len <= 0)
+    {
+        return NULL;
+    }
+    if (i + len > pbws->n)
+    {
+        len = pbws->n - i;
+    }
+    s = (sauchar_t *) malloc(len + 1);
+    if (s)
+    {
+        /*
+         * BW[j] = T[SA[j] - 1] => T[i] = BW[ISA[i + 1]]
+         * LF[j] = ISA[SA[j] - 1] => ISA[i] = LF[ISA[i + 1]]
+         */
+        saidx_t j, k, l;
+        sauchar_t *p = s + len;
+        *p-- = 0;
+        j = ((i >> pbws->logLB) + 1) << pbws->logLB;
+        l = i + len;
+        k = i;
+        if (j <= l)
+        {
+            len = j - i;
+            i = j;
+            p = s + (i - k) - 1;
+            i = bws_isa_r(pcsa, pbws,
+                          fpbw,
+                          i);
+            do
+            {
+                *p-- = bws_bw(pcsa, pbws,
+                              fpbw,
+                              i);
+                i = bws_lf(pcsa, pbws,
+                           fpbw,
+                           i);
+            } while (--len);
+            i = j;
+        }
+#ifdef _OPENMP
+#pragma omp parallel for default(shared) private(j, p, len) firstprivate(i)
+#endif
+        for (j = i; j < l; j += pbws->lb)
+        {
+            bw_file_t *bwfp = fpbw->dup(fpbw);
+            len = j + pbws->lb > l ? l - j : pbws->lb;
+            i = j + len;
+            p = s + (i - k) - 1;
+            i = bws_isa_r(pcsa, pbws,
+                          bwfp,
+                          i);
+            do
+            {
+                *p-- = bws_bw(pcsa, pbws,
+                              bwfp,
+                              i);
+                i = bws_lf(pcsa, pbws,
+                           bwfp,
+                           i);
+            } while (--len);
+            bwfp->close(bwfp);
+        }
+    }
+    return s;
+}
+
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
