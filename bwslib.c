@@ -738,7 +738,7 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
             }
             if (next > pbws->n)
             {
-                next = pbws->n;
+                next = pbws->n + 1;
             }
             for (j = i / pbws->l + 1, k = i - i % pbws->l + pbws->l;
                  k < next; k += pbws->l, j++)
