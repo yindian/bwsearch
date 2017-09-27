@@ -702,24 +702,71 @@ saidx_t bws_rankc(csaidx_t *pcsa, bwsidx_t *pbws,
     else
     {
         saidx_t pos = 0;
+        saidx_t next;
         saidx_t j;
         saidx_t k;
+        int found = 0;
         if (i >= pbws->lb)
         {
             rank = GET_SAIDX(*pbws, lbRankC,
                              ((i >> pbws->logLB) - 1) * pcsa->m + c);
             pos = (i >> pbws->logLB) << pbws->logLB; /* i & ~(pbws->lb - 1); */
+            next = pos + pbws->lb;
+        }
+        else
+        {
+            next = ((i >> pbws->logLB) + 1) << pbws->logLB;
         }
         c = pcsa->AtoC[c];
         for (j = i / pbws->l, k = i - i % pbws->l; k >= pos; k -= pbws->l, j--)
         {
-            if (pbws->lBW[j] == c)
+            if (pbws->lBW[j] == c && k != pbws->last)
             {
                 rank += GET_U16(*pbws, lRankC, j) + 1;
                 pos = k + 1;
+                found = 1;
                 break;
             }
         }
+        if (i - pos > next - i)
+        {
+            if (found)
+            {
+                rank -= GET_U16(*pbws, lRankC, j) + 1;
+                pos -= k + 1;
+                found = 0;
+            }
+            if (next > pbws->n)
+            {
+                next = pbws->n;
+            }
+            for (j = i / pbws->l + 1, k = i - i % pbws->l + pbws->l;
+                 k < next; k += pbws->l, j++)
+            {
+                if (pbws->lBW[j] == c && k != pbws->last)
+                {
+                    rank += GET_U16(*pbws, lRankC, j);
+                    pos = k;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                rank = GET_SAIDX(*pbws, lbRankC,
+                                 (i >> pbws->logLB) * pcsa->m + pcsa->CtoA[c]);
+                pos = next;
+            }
+            pos -= pos > pbws->last;
+            i -= i >= pbws->last;
+            fpbw->seek(fpbw, i + 1);
+            pos -= i;
+            while (--pos > 0)
+            {
+                rank -= fpbw->getc(fpbw) == c;
+            }
+        }
+        else
         if (pos <= i)
         {
             pos -= pos > pbws->last;
