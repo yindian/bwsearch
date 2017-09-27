@@ -85,6 +85,7 @@ clean:
 
 $(libdivsufsort_SOURCES:%.c=$(DEP_DIR)/%.d): CFLAGS += $(libdivsufsort_CFLAGS)
 $(libdivsufsort_SOURCES:%.c=$(DEP_DIR)/%.d): $(libdivsufsort_GEN_HDR)
+$(libdivsufsort_SOURCES:%.c=$(OBJ_DIR)/%.o): CFLAGS += $(libdivsufsort_CFLAGS)
 $(libdivsufsort_GEN_HDR): %.h: libdivsufsort/include/%.h.cmake Makefile
 	$(SED) 's/@INCFILE@/#include <inttypes.h>/g;s/@INLINE@/inline/g;s/@SAUCHAR_TYPE@/uint8_t/g;s/@SAINT32_TYPE@/int32_t/g;s/@SAINT32_PRId@/PRId32/g;s/@SAINT64_TYPE@/int64_t/g;s/@SAINT64_PRId@/PRId64/g;s/@DIVSUFSORT_IMPORT@//g;s/@DIVSUFSORT_EXPORT@//g;s/@W64BIT@//g;s/@SAINDEX_TYPE@/int32_t/g;s/@SAINDEX_PRId@/PRId32/g;s/@SAINT_PRId@/PRId32/g' $< > $@
 $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): CFLAGS += $(bwsearch_CFLAGS)
@@ -105,8 +106,6 @@ $(bwsearch_SOURCES:%.c=$(DEP_DIR)/%.d): $(mman_GEN_HDR)
 $(mman_GEN_HDR): %.h: $(mman_DIR)/%.h
 	$(SED) '/^#ifndef.*\/\//s=//=\n&=' $< > $@
 endif
-
-$(addprefix $(BIN_DIR)/,$(addsuffix $(DOT_EXE),$(libdivsufsort_EXAMPLES))): CFLAGS += $(libdivsufsort_CFLAGS)
 
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter libdivsufsort.a bwslib2.c,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(libdivsufsort_LDFLAGS)
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(eval $(BIN_DIR)/$(prog)$(DOT_EXE): $(call src2obj, $(value $(prog)_SRC))))
