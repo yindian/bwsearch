@@ -83,6 +83,10 @@ all: $(TARGETS)
 clean:
 	rm -rf $(TARGETS) $(DEP_DIR) $(OBJ_DIR) $(GENERATED)
 
+.PHONY: check
+check:
+	. ./test.sh
+
 $(libdivsufsort_SOURCES:%.c=$(DEP_DIR)/%.d): CFLAGS += $(libdivsufsort_CFLAGS)
 $(libdivsufsort_SOURCES:%.c=$(DEP_DIR)/%.d): $(libdivsufsort_GEN_HDR)
 $(libdivsufsort_SOURCES:%.c=$(OBJ_DIR)/%.o): CFLAGS += $(libdivsufsort_CFLAGS)
