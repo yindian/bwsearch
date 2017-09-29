@@ -1,4 +1,5 @@
 #!/bin/sh
+#GDB_PREFIX="gdb --batch-silent -ex r -ex q --args"
 setllb() {
     echo
     echo "L=$1 LB=$2"
@@ -7,7 +8,8 @@ setllb() {
 check() {
     echo -n $1 > $1
     ../mkbws $1
-    test $1 = `../chkbws $1`
+    $GDB_PREFIX ../chkbws $1 > $1.out
+    test $1 = `cat $1.out`
 }
 docheck() {
     make $MAKE_ARGS
