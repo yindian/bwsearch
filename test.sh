@@ -1,5 +1,5 @@
 #!/bin/sh
-#GDB_PREFIX="gdb --batch-silent -ex r -ex q --args"
+#GDB_PREFIX="gdb --batch-silent -ex r --args"
 setllb() {
     echo
     echo "L=$1 LB=$2"
@@ -111,6 +111,220 @@ docheck2() {
     check bcdaa
     # C(5, 1) / S(1, 1, 1, 1, 1) * C(4, 1) / S(1, 1, 1, 1) * C(3, 1) / S(1, 1, 1) * C(2, 1) / S(1, 1) = 1
     check abcde
+    # C(6, 0) = 1
+    check aaaaaa
+    # C(6, 1) / S(5, 1) = 6
+    check aaaaab
+    check aaaaba
+    check aaabaa
+    check aabaaa
+    check abaaaa
+    check baaaaa
+    # C(6, 2) / S(4, 2) = 15
+    check aaaabb
+    check aaabab
+    check aabaab
+    check abaaab
+    check baaaab
+    check aaabba
+    check aababa
+    check abaaba
+    check baaaba
+    check aabbaa
+    check ababaa
+    check baabaa
+    check abbaaa
+    check babaaa
+    check bbaaaa
+    # C(6, 3) / S(3, 3) = 10
+    check aaabbb
+    check aababb
+    check abaabb
+    check baaabb
+    check aabbab
+    check ababab
+    check baabab
+    check abbaab
+    check babaab
+    check bbaaab
+    # C(6, 1) / S(4, 1, 1) * C(5, 1) / S(4, 1) = 15
+    check aaaabc
+    check aaabac
+    check aabaac
+    check abaaac
+    check baaaac
+    check aaabca
+    check aabaca
+    check abaaca
+    check baaaca
+    check aabcaa
+    check abacaa
+    check baacaa
+    check abcaaa
+    check bacaaa
+    check bcaaaa
+    # C(6, 1) / S(3, 2, 1) * C(5, 2) / S(3, 2) = 60
+    check aaabbc
+    check aababc
+    check abaabc
+    check baaabc
+    check aabbac
+    check ababac
+    check baabac
+    check abbaac
+    check babaac
+    check bbaaac
+    check aaabcb
+    check aabacb
+    check abaacb
+    check baaacb
+    check aabbca
+    check ababca
+    check baabca
+    check abbaca
+    check babaca
+    check bbaaca
+    check aaacbb
+    check aabcab
+    check abacab
+    check baacab
+    check aabcba
+    check abacba
+    check baacba
+    check abbcaa
+    check babcaa
+    check bbacaa
+    check aacabb
+    check aacbab
+    check abcaab
+    check bacaab
+    check aacbba
+    check abcaba
+    check bacaba
+    check abcbaa
+    check bacbaa
+    check bbcaaa
+    check acaabb
+    check acabab
+    check acbaab
+    check bcaaab
+    check acabba
+    check acbaba
+    check bcaaba
+    check acbbaa
+    check bcabaa
+    check bcbaaa
+    check caaabb
+    check caabab
+    check cabaab
+    check cbaaab
+    check caabba
+    check cababa
+    check cbaaba
+    check cabbaa
+    check cbabaa
+    check cbbaaa
+    # C(6, 2) / S(2, 2, 2) * C(4, 2) / S(2, 2) = 15
+    check aabbcc
+    check ababcc
+    check baabcc
+    check aabcbc
+    check abacbc
+    check baacbc
+    check aacbbc
+    check abcabc
+    check bacabc
+    check acabbc
+    check acbabc
+    check bcaabc
+    check caabbc
+    check cababc
+    check cbaabc
+    # C(6, 1) / S(3, 1, 1, 1) * C(5, 1) / S(3, 1, 1) * C(4, 1) / S(3, 1) = 20
+    check aaabcd
+    check aabacd
+    check abaacd
+    check baaacd
+    check aabcad
+    check abacad
+    check baacad
+    check abcaad
+    check bacaad
+    check bcaaad
+    check aabcda
+    check abacda
+    check baacda
+    check abcada
+    check bacada
+    check bcaada
+    check abcdaa
+    check bacdaa
+    check bcadaa
+    check bcdaaa
+    # C(6, 1) * S(2, 2, 1, 1) * C(5, 1) / S(2, 2, 1) * C(4, 2) / S(2, 2) = 45
+    check aabbcd
+    check ababcd
+    check baabcd
+    check aabcbd
+    check abacbd
+    check baacbd
+    check aacbbd
+    check abcabd
+    check bacabd
+    check acabbd
+    check acbabd
+    check bcaabd
+    check caabbd
+    check cababd
+    check cbaabd
+    check aabcdb
+    check abacdb
+    check baacdb
+    check aacbdb
+    check abcadb
+    check bacadb
+    check acabdb
+    check acbadb
+    check bcaadb
+    check caabdb
+    check cabadb
+    check cbaadb
+    check aacdbb
+    check abcdab
+    check bacdab
+    check acadbb
+    check acbdab
+    check bcadab
+    check caadbb
+    check cabdab
+    check cbadab
+    check acdabb
+    check acdbab
+    check bcdaab
+    check cadabb
+    check cadbab
+    check cbdaab
+    check cdaabb
+    check cdabab
+    check cdbaab
+    # C(6, 1) / S(2, 1, 1, 1, 1) * C(5, 1) / S(2, 1, 1, 1) * C(4, 1) / S(2, 1, 1) * C(3, 1) / S(2, 1) = 15
+    check aabcde
+    check abacde
+    check baacde
+    check abcade
+    check bacade
+    check bcaade
+    check abcdae
+    check bacdae
+    check bcadae
+    check bcdaae
+    check abcdea
+    check bacdea
+    check bcadea
+    check bcdaea
+    check bcdeaa
+    # C(6, 1) / S(1, 1, 1, 1, 1, 1) * C(5, 1) / S(1, 1, 1, 1, 1) * C(4, 1) / S(1, 1, 1, 1) * C(3, 1) / S(1, 1, 1) * C(2, 1) / S(1, 1) = 1
+    check abcdef
     cd ../..
 }
 set -e
@@ -130,6 +344,10 @@ setllb 2 2 && docheck
 setllb 1 4 && docheck && docheck2
 setllb 2 4 && docheck && docheck2
 setllb 4 4 && docheck && docheck2
+setllb 1 8 && docheck && docheck2
+setllb 2 8 && docheck && docheck2
+setllb 4 8 && docheck && docheck2
+setllb 8 8 && docheck && docheck2
 mv chkbws.c.bak chkbws.c
 mv csacompat.h.bak csacompat.h
 touch chkbws.c
