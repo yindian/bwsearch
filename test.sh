@@ -1,5 +1,5 @@
 #!/bin/sh
-#GDB_PREFIX="gdb --batch-silent -ex r --args"
+#GDB_PREFIX="gdb --batch-silent -ex r -ex bt --args"
 setllb() {
     echo
     echo "L=$1 LB=$2"
@@ -325,7 +325,74 @@ docheck2() {
     check bcdeaa
     # C(6, 1) / S(1, 1, 1, 1, 1, 1) * C(5, 1) / S(1, 1, 1, 1, 1) * C(4, 1) / S(1, 1, 1, 1) * C(3, 1) / S(1, 1, 1) * C(2, 1) / S(1, 1) = 1
     check abcdef
+    # auto gen
+    bellnum 7 | while read s; do
+        check $s
+    done
+    bellnum 8 | while read s; do
+        check $s
+    done
     cd ../..
+}
+docheck3() {
+    cd bin/test
+    for i in `seq 9 16`; do
+        bellnum $i
+    done | while read s; do check $s; done
+    cd ../..
+}
+stirling2() {
+    local n=$1
+    local k=$2
+    local c=$3
+    if [ -n "$(eval "echo \$stlg_${n}_${k}_$c")" ]; then
+        eval "echo \$stlg_${n}_${k}_$c"
+        return 0
+    fi
+    local i
+    local ret
+    local line
+    #printf "(%d %d %d)" $n $k $c >&2
+    if [ $k -eq 1 ]; then
+        for i in `seq $n`; do
+            printf %b \\`expr 140 + $c`
+        done
+        echo
+    elif [ $n -lt $k ]; then
+        return 1
+    else
+        local n_1
+        n_1=`expr $n - 1`
+        k_1=`expr $k - 1`
+        ret="$(stirling2 $n_1 $k_1 $c)"
+        if [ -z "$(eval "echo \$stlg_${n_1}_${k_1}_$c")" ]; then
+            eval "stlg_${n_1}_${k_1}_$c=\"$ret\""
+            #echo "stlg_${n_1}_${k_1}_$c=\"$ret\"" >&2
+        fi
+        for line in $ret; do
+            printf %s%b\\n $line \\`expr 140 + $c + $k - 1`
+        done
+        if [ $n -gt $k ]; then
+            for i in `seq $k`; do
+                ret="$(stirling2 $n_1 $k $c)"
+                if [ -z "$(eval "echo \$stlg_${n_1}_${k}_$c")" ]; then
+                    eval "stlg_${n_1}_${k}_$c=\"$ret\""
+                    #echo "stlg_${n_1}_${k}_$c=\"$ret\"" >&2
+                fi
+                for line in $ret; do
+                    printf %s%b\\n $line \\`expr 140 + $c + $i - 1`
+                done
+            done
+        fi
+    fi
+    return 0
+}
+bellnum() {
+    local n=$1
+    local i
+    for i in `seq $n`; do
+        stirling2 $n $i 1
+    done
 }
 set -e
 if [ -n "$NUMBER_OF_PROCESSORS" ]; then
@@ -344,10 +411,10 @@ setllb 2 2 && docheck
 setllb 1 4 && docheck && docheck2
 setllb 2 4 && docheck && docheck2
 setllb 4 4 && docheck && docheck2
-setllb 1 8 && docheck && docheck2
-setllb 2 8 && docheck && docheck2
-setllb 4 8 && docheck && docheck2
-setllb 8 8 && docheck && docheck2
+setllb 1 8 && docheck && docheck2 #&& docheck3
+setllb 2 8 && docheck && docheck2 #&& docheck3
+setllb 4 8 && docheck && docheck2 #&& docheck3
+setllb 8 8 && docheck && docheck2 #&& docheck3
 mv chkbws.c.bak chkbws.c
 mv csacompat.h.bak csacompat.h
 touch chkbws.c
