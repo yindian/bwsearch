@@ -10,6 +10,7 @@ check() {
     ../mkbws $1
     $GDB_PREFIX ../chkbws $1 > $1.out
     test $1 = `cat $1.out`
+    rm $1 $1.*
 }
 docheck() {
     make $MAKE_ARGS
@@ -391,7 +392,7 @@ bellnum() {
     local n=$1
     local i
     for i in `seq $n`; do
-        stirling2 $n $i 1
+        ../stirling2 $n $i 1 | tr -d '\r'
     done
 }
 set -e
