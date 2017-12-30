@@ -2,6 +2,8 @@
  * See Copyright Notice in bwslib.h
  */
 #include "dzlib.h"
+#define _POSIX_SOURCE
+#define _BSD_SOURCE
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,7 +82,6 @@ int dzip_compress(const char *fname, int force)
         {
             gp = fopen(ofname, "rb");
             CHECK_COND(!gp, DZ_RET_EXISTING);
-            fclose(gp);
         }
         gp = fopen(ofname, "wb");
         CHECK_COND(gp, DZ_RET_IO_ERR);
