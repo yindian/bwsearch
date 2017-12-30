@@ -30,18 +30,21 @@ TARGETS += $(addprefix $(BIN_DIR)/,$(bwsearch_TARGETS))
 SRC += $(bwsearch_SOURCES)
 bwsearch_TARGETS = mkbws unbws bws
 bwsearch_TARGETS += chkbws
+bwsearch_TARGETS += dzip
 bwsearch_TARGETS += stirling2
 bwsearch_CFLAGS = -ansi -pedantic -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 bwsearch_CFLAGS += -g
 ifneq ($(findstring --enable-libgomp,$(CC_V))$(findstring --enable-gnu,$(CC_V)),)
 bwsearch_CFLAGS += -fopenmp
 endif
+bwsearch_LDFLAGS += -lz
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 bwsearch_SOURCES = $(call uniq,$(filter-out %.a, $(foreach prog,$(bwsearch_TARGETS),$(value $(prog)_SRC))))
 mkbws_SRC = mkbws.c libdivsufsort.a
 unbws_SRC = unbws.c bwslib.c bwslib2.c libdivsufsort.a
 bws_SRC = bws.c bwslib.c
 chkbws_SRC = chkbws.c bwslib.c bwslib2.c
+dzip_SRC = dzip.c dzlib.c
 stirling2_SRC = stirling2.c
 
 DEP_DIR = deps
@@ -114,6 +117,7 @@ $(mman_GEN_HDR): %.h: $(mman_DIR)/%.h
 endif
 
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter libdivsufsort.a bwslib2.c,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(libdivsufsort_LDFLAGS)
+$(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(if $(filter dzlib.c,$(value $(prog)_SRC)),$(BIN_DIR)/$(prog)$(DOT_EXE))): LDFLAGS += $(bwsearch_LDFLAGS)
 $(foreach prog,$(filter-out %.a,$(notdir $(if $(ORIG_TARGETS),$(ORIG_TARGETS),$(TARGETS)))),$(eval $(BIN_DIR)/$(prog)$(DOT_EXE): $(call src2obj, $(value $(prog)_SRC))))
 $(filter-out %.a,$(TARGETS)):
 	@mkdir -p $(@D)
