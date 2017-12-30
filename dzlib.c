@@ -9,10 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#ifdef _WIN32
-#include <sys/param.h>
-typedef unsigned long uint32_t;
-typedef unsigned short uint16_t;
+#include <stdint.h>
+#include <ctype.h>
+#if !defined(htole32) || !defined(htole16)
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define htole32(_x) (_x)
 #define htole16(_x) (_x)
@@ -21,9 +20,6 @@ typedef unsigned short uint16_t;
                      ((((_x) >> 16) & 0xFF) << 8) | ((_x) >> 24))
 #define htole16(_x) ((((_x) & 0xFF) << 8) | ((_x) >> 8))
 #endif
-#else
-#include <stdint.h>
-#include <endian.h>
 #endif
 #include <zlib.h>
 #define ZSTRM_SET(_zs, _field, _val) (_zs)->_field = (_val)
