@@ -12,6 +12,7 @@
 #define DZ_RET_MALFORM     -3
 #define DZ_RET_IO_ERR      -4
 #define DZ_RET_TOO_LARGE   -5
+#define DZ_RET_ZLIB_ERR    -10
 
 #define DZ_CHUNK_SIZE       58315
 #define DZ_DEFLATE_BUF_SIZE 65535

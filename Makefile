@@ -36,6 +36,7 @@ bwsearch_CFLAGS = -ansi -pedantic -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 bwsearch_CFLAGS += -g
 ifneq ($(findstring --enable-libgomp,$(CC_V))$(findstring --enable-gnu,$(CC_V)),)
 bwsearch_CFLAGS += -fopenmp
+bwsearch_LDFLAGS += -fopenmp
 endif
 bwsearch_LDFLAGS += -lz
 uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))

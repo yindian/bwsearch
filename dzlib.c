@@ -24,6 +24,9 @@
 #include <zlib.h>
 #define ZSTRM_SET(_zs, _field, _val) (_zs)->_field = (_val)
 #define ZSTRM_GET(_zs, _field) (_zs)->_field
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 int dzip_compress(const char *fname, int force)
 {
@@ -47,29 +50,20 @@ int dzip_compress(const char *fname, int force)
     header = NULL;
     do
     {
-#if 0
-        off_t size;
-#else
         struct stat st;
-#endif
         int fnlen;
         char *base;
         unsigned chunks, hdrlen;
         unsigned char *p;
         uint32_t u32;
         uint16_t u16;
+        int jobs;
+        z_stream *zs;
         CHECK_COND(fname, DZ_RET_INV_ARG);
         fp = fopen(fname, "rb");
         CHECK_COND(fp, DZ_RET_IO_ERR);
-#if 0
-        CHECK_COND(!fseeko(fp, 0, SEEK_END), DZ_RET_IO_ERR);
-        size = ftello(fp);
-        CHECK_COND(size / DZ_CHUNK_SIZE <= (65535 - 10) / 2, DZ_RET_TOO_LARGE);
-        CHECK_COND(!fseeko(fp, 0, SEEK_SET), DZ_RET_IO_ERR);
-#else
         CHECK_COND(!fstat(fileno(fp), &st), DZ_RET_IO_ERR);
         CHECK_COND(st.st_size <= (65535-10)/2*DZ_CHUNK_SIZE, DZ_RET_TOO_LARGE);
-#endif
         fnlen = strlen(fname);
         ofname = (char *) malloc(fnlen + 4);
         CHECK_COND(ofname, DZ_RET_MEM_ERR);
@@ -129,8 +123,132 @@ int dzip_compress(const char *fname, int force)
         u16 = htole16(u16); memcpy(p, &u16, 2); p += 2;
         u16 = chunks; /* chunk count */
         u16 = htole16(u16); memcpy(p, &u16, 2); p += 2;
+        assert(p == header + 22);
         CHECK_COND(fwrite(header, 1, hdrlen, gp) == hdrlen, DZ_RET_IO_ERR);
         CHECK_COND(fwrite(base, 1, fnlen + 1, gp) == fnlen + 1, DZ_RET_IO_ERR);
+#ifdef _OPENMP
+        jobs = omp_get_max_threads();
+#else
+        jobs = 1;
+#endif
+        zs = (z_stream *) malloc(sizeof(z_stream) * jobs);
+        CHECK_COND(zs, DZ_RET_MEM_ERR);
+        memset(zs, 0, sizeof(z_stream) * jobs);
+        do
+        {
+            Bytef *buf;
+            uLong crc;
+            int i;
+            int r;
+            int idx;
+            size_t size;
+            assert(DZ_CHUNK_SIZE <= (1 << 16));
+            assert(DZ_DEFLATE_BUF_SIZE <= (1 << 16));
+            buf = (Bytef *) malloc((jobs * 2) << 16);
+            CHECK_COND(buf, DZ_RET_MEM_ERR);
+            memset(buf, 0, (jobs * 2) << 16);
+#define IN_BUF(_i)  (buf + ((_i) * DZ_CHUNK_SIZE))
+#define OUT_BUF(_i) (buf + ((jobs + (_i)) << 16))
+            for (i = 0; i < jobs; i++)
+            {
+                r = deflateInit2(
+                        &zs[i],
+                        Z_BEST_COMPRESSION,
+                        Z_DEFLATED,
+                        -15,
+                        9,
+                        Z_DEFAULT_STRATEGY);
+                CHECK_COND(r == Z_OK, DZ_RET_ZLIB_ERR + r);
+            }
+            if (err)
+            {
+                free(buf);
+                break;
+            }
+            crc = crc32(0, NULL, 0);
+            idx = 22;
+            while (!feof(fp))
+            {
+                int cnt;
+                size = fread(buf, 1, DZ_CHUNK_SIZE * jobs, fp);
+                if (!size)
+                {
+                    break;
+                }
+                crc = crc32(crc, buf, size);
+                cnt = (size + DZ_CHUNK_SIZE - 1) / DZ_CHUNK_SIZE;
+#ifdef _OPENMP
+#pragma omp parallel for default(shared) private(i, u16)
+#endif
+                for (i = 0; i < cnt; i++)
+                {
+                    ZSTRM_SET(&zs[i], next_in, IN_BUF(i));
+                    if (i == cnt - 1)
+                    {
+                        ZSTRM_SET(&zs[i], avail_in, size - DZ_CHUNK_SIZE * i);
+                    }
+                    else
+                    {
+                        ZSTRM_SET(&zs[i], avail_in, DZ_CHUNK_SIZE);
+                    }
+                    ZSTRM_SET(&zs[i], next_out, OUT_BUF(i));
+                    ZSTRM_SET(&zs[i], avail_out, DZ_DEFLATE_BUF_SIZE);
+                    r = deflate(&zs[i], Z_FULL_FLUSH);
+                    assert(r == Z_OK);
+                    u16 = DZ_DEFLATE_BUF_SIZE - zs[i].avail_out;
+                    u16 = htole16(u16);
+                    memcpy(header + idx + i * 2, &u16, 2);
+                }
+                for (i = 0; i < cnt; i++)
+                {
+                    CHECK_COND(fwrite(OUT_BUF(i), 1,
+                                      DZ_DEFLATE_BUF_SIZE - zs[i].avail_out, gp)
+                               == DZ_DEFLATE_BUF_SIZE - zs[i].avail_out,
+                               DZ_RET_IO_ERR);
+                }
+                if (err)
+                {
+                    break;
+                }
+                idx += cnt * 2;
+            }
+            assert(idx == 22 + chunks * 2);
+            for (i = 0; i < jobs; i++)
+            {
+                ZSTRM_SET(&zs[i], next_in, IN_BUF(i));
+                ZSTRM_SET(&zs[i], avail_in, 0);
+                ZSTRM_SET(&zs[i], next_out, OUT_BUF(i));
+                ZSTRM_SET(&zs[i], avail_out, DZ_DEFLATE_BUF_SIZE);
+                r = deflate(&zs[i], Z_FINISH);
+                CHECK_COND(r == Z_STREAM_END, DZ_RET_ZLIB_ERR + r);
+                CHECK_COND(zs[i].avail_in == 0, DZ_RET_ZLIB_ERR);
+                r = deflateEnd(&zs[i]);
+                CHECK_COND(r == Z_OK, DZ_RET_ZLIB_ERR + r);
+            }
+            for (i = 0; i < jobs - 1; i++)
+            {
+                CHECK_COND(zs[i].avail_out==zs[i+1].avail_out, DZ_RET_ZLIB_ERR);
+                CHECK_COND(!memcmp(OUT_BUF(i), OUT_BUF(i+1),
+                                   DZ_DEFLATE_BUF_SIZE - zs[i].avail_out),
+                           DZ_RET_ZLIB_ERR);
+            }
+            do
+            {
+                CHECK_COND(fwrite(OUT_BUF(0), 1,
+                                  DZ_DEFLATE_BUF_SIZE - zs[0].avail_out, gp)
+                           == DZ_DEFLATE_BUF_SIZE - zs[0].avail_out,
+                           DZ_RET_IO_ERR);
+            } while (0);
+            free(buf);
+            u32 = htole32(crc);
+            CHECK_COND(fwrite(&u32, 1, 4, gp) == 4, DZ_RET_IO_ERR);
+            u32 = st.st_size;
+            u32 = htole32(u32);
+            CHECK_COND(fwrite(&u32, 1, 4, gp) == 4, DZ_RET_IO_ERR);
+        } while (0);
+        free(zs);
+        CHECK_COND(!fseek(gp, 22, SEEK_SET), DZ_RET_IO_ERR);
+        CHECK_COND(fwrite(header + 22, 2, chunks, gp) == chunks, DZ_RET_IO_ERR);
     } while (0);
     if (fp)
     {
@@ -150,7 +268,7 @@ int dzip_compress(const char *fname, int force)
     }
     if (err)
     {
-        fprintf(stderr, "Error in %s:%d\n", __FILE__, err);
+        fprintf(stderr, "Error in %s:%d ret %d\n", __FILE__, err, ret);
     }
     return ret;
 }
