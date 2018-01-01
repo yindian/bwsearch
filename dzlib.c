@@ -131,6 +131,7 @@ int dzip_compress(const char *fname, int force)
 #else
         jobs = 1;
 #endif
+        jobs <<= 6;
         zs = (z_stream *) malloc(sizeof(z_stream) * jobs);
         CHECK_COND(zs, DZ_RET_MEM_ERR);
         memset(zs, 0, sizeof(z_stream) * jobs);
@@ -142,13 +143,14 @@ int dzip_compress(const char *fname, int force)
             int r;
             int idx;
             size_t size;
-            assert(DZ_CHUNK_SIZE <= (1 << 16));
+            assert(DZ_CHUNK_SIZE <= (1 << 16) - sizeof(uLong));
             assert(DZ_DEFLATE_BUF_SIZE <= (1 << 16));
             buf = (Bytef *) malloc((jobs * 2) << 16);
             CHECK_COND(buf, DZ_RET_MEM_ERR);
             memset(buf, 0, (jobs * 2) << 16);
 #define IN_BUF(_i)  (buf + ((_i) * DZ_CHUNK_SIZE))
 #define OUT_BUF(_i) (buf + ((jobs + (_i)) << 16))
+#define CRC_BUF(_i) (buf + (jobs << 16) - ((_i) + 1) * sizeof(uLong))
             for (i = 0; i < jobs; i++)
             {
                 r = deflateInit2(
@@ -175,13 +177,13 @@ int dzip_compress(const char *fname, int force)
                 {
                     break;
                 }
-                crc = crc32(crc, buf, size);
                 cnt = (size + DZ_CHUNK_SIZE - 1) / DZ_CHUNK_SIZE;
 #ifdef _OPENMP
 #pragma omp parallel for default(shared) private(i, u16)
 #endif
                 for (i = 0; i < cnt; i++)
                 {
+                    uLong *pcrc = (uLong *) CRC_BUF(i);
                     ZSTRM_SET(&zs[i], next_in, IN_BUF(i));
                     if (i == cnt - 1)
                     {
@@ -191,6 +193,7 @@ int dzip_compress(const char *fname, int force)
                     {
                         ZSTRM_SET(&zs[i], avail_in, DZ_CHUNK_SIZE);
                     }
+                    *pcrc = crc32(0, zs[i].next_in, zs[i].avail_in);
                     ZSTRM_SET(&zs[i], next_out, OUT_BUF(i));
                     ZSTRM_SET(&zs[i], avail_out, DZ_DEFLATE_BUF_SIZE);
                     r = deflate(&zs[i], Z_FULL_FLUSH);
@@ -201,10 +204,14 @@ int dzip_compress(const char *fname, int force)
                 }
                 for (i = 0; i < cnt; i++)
                 {
+                    uLong *pcrc = (uLong *) CRC_BUF(i);
                     CHECK_COND(fwrite(OUT_BUF(i), 1,
                                       DZ_DEFLATE_BUF_SIZE - zs[i].avail_out, gp)
                                == DZ_DEFLATE_BUF_SIZE - zs[i].avail_out,
                                DZ_RET_IO_ERR);
+                    crc = crc32_combine(
+                            crc, *pcrc, i == cnt - 1 ?
+                            size - DZ_CHUNK_SIZE * i : DZ_CHUNK_SIZE);
                 }
                 if (err)
                 {
