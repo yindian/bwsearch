@@ -9,6 +9,10 @@ CFLAGS += -O3
 else
 CFLAGS += -g
 endif
+ifeq ($(shell uname -m 2>&1),x86_64)
+CFLAGS += -m64
+LDFLAGS += -m64
+endif
 
 CC_V := $(shell LANG=C $(CC) -v 2>&1)
 
