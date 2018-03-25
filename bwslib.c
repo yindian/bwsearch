@@ -551,6 +551,12 @@ static bw_mmap_t *bw_file_new_mmap(FILE *fp)
     return NULL;
 }
 
+static saidx_t bw_file_size_from_mmap(bw_file_t *bwfp)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    return bwm->len;
+}
+
 static void bw_file_seek_set_from_mmap(bw_file_t *bwfp, saidx_t pos)
 {
     bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
@@ -621,6 +627,24 @@ static void bw_file_seek_set_from_fp(bw_file_t *bwfp, saidx_t pos)
     }
 }
 
+static saidx_t bw_file_size_from_fp(bw_file_t *bwfp)
+{
+    FILE *fp = (FILE *) bwfp->tag;
+    off_t old_pos, pos;
+    old_pos = ftello(fp);
+    if (fseeko(fp, 0, SEEK_END))
+    {
+        perror("seek failed");
+        return -1;
+    }
+    pos = ftello(fp);
+    if (pos != old_pos && fseeko(fp, old_pos, SEEK_SET))
+    {
+        perror("seek failed");
+    }
+    return pos;
+}
+
 static int bw_file_get_char_from_fp(bw_file_t *bwfp)
 {
     FILE *fp = (FILE *) bwfp->tag;
@@ -655,6 +679,7 @@ bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
     {
         bwfp->tag = bw_file_new_mmap(fp);
         bwfp->seek = bw_file_seek_set_from_mmap;
+        bwfp->size = bw_file_size_from_mmap;
         bwfp->getc = bw_file_get_char_from_mmap;
         bwfp->close = bw_file_close_from_mmap;
         bwfp->dup = bw_file_dup_from_mmap;
@@ -663,6 +688,7 @@ bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
     {
         bwfp->tag = fp;
         bwfp->seek = bw_file_seek_set_from_fp;
+        bwfp->size = bw_file_size_from_fp;
         bwfp->getc = bw_file_get_char_from_fp;
         bwfp->close = bw_file_close_from_fp;
         bwfp->dup = bw_file_dup_from_fp;

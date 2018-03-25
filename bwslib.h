@@ -129,6 +129,7 @@ extern int bws_free_bws_index(bwsidx_t *pindex);
 
 typedef struct _bw_file_t bw_file_t;
 typedef void (*bw_file_seek_set_f)(bw_file_t *bwfp, saidx_t pos);
+typedef saidx_t (*bw_file_size_f)(bw_file_t *bwfp);
 typedef int (*bw_file_get_char_f)(bw_file_t *bwfp);
 typedef void (*bw_file_close_f)(bw_file_t *bwfp);
 typedef bw_file_t *(*bw_file_dup_f)(bw_file_t *bwfp);
@@ -136,6 +137,7 @@ typedef bw_file_t *(*bw_file_dup_f)(bw_file_t *bwfp);
 struct _bw_file_t {
     void *tag;
     bw_file_seek_set_f  seek;
+    bw_file_size_f      size;
     bw_file_get_char_f  getc;
     bw_file_close_f     close;
     bw_file_dup_f       dup;

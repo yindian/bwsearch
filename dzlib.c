@@ -2,8 +2,12 @@
  * See Copyright Notice in bwslib.h
  */
 #include "dzlib.h"
+#ifndef _POSIX_SOURCE
 #define _POSIX_SOURCE
+#endif
+#ifndef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
+#endif
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,10 +19,14 @@
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define htole32(_x) (_x)
 #define htole16(_x) (_x)
+#define le32toh(_x) (_x)
+#define le16toh(_x) (_x)
 #else
 #define htole32(_x) ((((_x) & 0xFF) << 24) | ((((_x) >> 8) & 0xFF) << 16) |\
                      ((((_x) >> 16) & 0xFF) << 8) | ((_x) >> 24))
 #define htole16(_x) ((((_x) & 0xFF) << 8) | ((_x) >> 8))
+#define le32toh(_x) htole32(_x)
+#define le16toh(_x) htole16(_x)
 #endif
 #endif
 #include <zlib.h>
@@ -26,6 +34,11 @@
 #define ZSTRM_GET(_zs, _field) (_zs)->_field
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+#ifdef _WIN32
+#include "mman.h"
+#else
+#include <sys/mman.h>
 #endif
 
 int dzip_compress(const char *fname, int force)
@@ -282,6 +295,292 @@ int dzip_compress(const char *fname, int force)
 
 int dzip_decompress(const char *fname, int force)
 {
-    return 0;
+    int ret, err;
+    FILE *fp, *gp;
+    char *ofname;
+    ret = DZ_RET_OK;
+    err = 0;
+    fp = gp = NULL;
+    ofname = NULL;
+    do
+    {
+        int fnlen;
+        char *p;
+        CHECK_COND(fname, DZ_RET_INV_ARG);
+        CHECK_COND(strrchr(fname, '.'), DZ_RET_INV_ARG);
+        fp = fopen(fname, "rb");
+        CHECK_COND(fp, DZ_RET_IO_ERR);
+        fnlen = strlen(fname);
+        ofname = (char *) malloc(fnlen + 1);
+        CHECK_COND(ofname, DZ_RET_MEM_ERR);
+        strcpy(ofname, fname);
+        p = strrchr(ofname, '.');
+        *p = '\0';
+        if (!force)
+        {
+            gp = fopen(ofname, "rb");
+            CHECK_COND(!gp, DZ_RET_EXISTING);
+        }
+        gp = fopen(ofname, "wb");
+        CHECK_COND(gp, DZ_RET_IO_ERR);
+    } while (0);
+    if (fp)
+    {
+        fclose(fp);
+    }
+    if (gp)
+    {
+        fclose(gp);
+    }
+    if (ofname)
+    {
+        free(ofname);
+    }
+    if (err)
+    {
+        fprintf(stderr, "Error in %s:%d ret %d\n", __FILE__, err, ret);
+    }
+    return ret;
+}
+
+typedef struct _bw_dzip_fp_t {
+    sauchar_t *map;
+    off_t   base;
+    off_t   pos;
+    off_t   len;
+    off_t   rawlen;
+    off_t   rawbase;
+    uint32_t mtime;
+    off_t   chunk_base;
+    int     chunk_len;
+    int     chunks;
+    off_t   *offsets;
+    int     duped;
+} bw_dzip_fp_t;
+
+static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
+{
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) malloc(sizeof(bw_dzip_fp_t));
+#undef CHECK_COND
+#define CHECK_COND(_cond, _ret) \
+    {\
+        if (!(_cond))\
+        {\
+            if (pret) *pret = _ret;\
+            if (perr) *perr = __LINE__;\
+            break;\
+        }\
+    }
+#define PERROR_IF(_cond, _msg) \
+    {\
+        if (_cond)\
+        {\
+            if (pret) *pret = DZ_RET_IO_ERR;\
+            if (perr) *perr = __LINE__;\
+            perror(_msg);\
+            break;\
+        }\
+    }
+    do
+    {
+        CHECK_COND(bwdz, DZ_RET_MEM_ERR);
+        memset(bwdz, 0, sizeof(bw_dzip_fp_t));
+        bwdz->pos = ftello(fp);
+        do
+        {
+            off_t pos;
+            uint32_t u32;
+            uint16_t u16;
+            int ch;
+            int i;
+            int flags;
+            int xlen, len;
+            PERROR_IF(fseeko(fp, 0, SEEK_END), "seek failed");
+            bwdz->rawlen = ftello(fp);
+            PERROR_IF(fseeko(fp, bwdz->pos, SEEK_SET), "seek failed");
+            CHECK_COND(fgetc(fp) == 0x1f, DZ_RET_MALFORM);
+            CHECK_COND(fgetc(fp) == 0x8b, DZ_RET_MALFORM); /* gzip magic */
+            CHECK_COND(fgetc(fp) == Z_DEFLATED, DZ_RET_MALFORM); /*compression*/
+            CHECK_COND((flags = fgetc(fp)) != EOF, DZ_RET_MALFORM); /* flags */
+            CHECK_COND((flags & 4), DZ_RET_MALFORM); /* fextra */
+            CHECK_COND(fread(&u32, 4, 1, fp) == 1, DZ_RET_MALFORM); /* mtime */
+            bwdz->mtime = le32toh(u32);
+            CHECK_COND((ch = fgetc(fp)) != EOF, DZ_RET_MALFORM); /* flags 2 */
+            CHECK_COND((ch = fgetc(fp)) != EOF, DZ_RET_MALFORM); /* os */
+            CHECK_COND(fread(&u16, 2, 1, fp) == 1, DZ_RET_MALFORM); /* xlen */
+            xlen = le16toh(u16);
+            while (xlen > 0)
+            {
+                int si1, si2;
+                CHECK_COND((si1 = fgetc(fp)) != EOF, DZ_RET_MALFORM); /* si1 */
+                CHECK_COND((si2 = fgetc(fp)) != EOF, DZ_RET_MALFORM); /* si2 */
+                CHECK_COND(fread(&u16, 2, 1, fp) == 1, DZ_RET_MALFORM); /*len*/
+                len = le16toh(u16);
+                if (si1 == 'R' && si2 == 'A')
+                {
+                    CHECK_COND(fread(&u16, 2, 1, fp) == 1, DZ_RET_MALFORM);
+                    CHECK_COND(le16toh(u16) == 1, DZ_RET_MALFORM); /* version */
+                    CHECK_COND(fread(&u16, 2, 1, fp) == 1, DZ_RET_MALFORM);
+                    bwdz->chunk_len = le16toh(u16);
+                    CHECK_COND(fread(&u16, 2, 1, fp) == 1, DZ_RET_MALFORM);
+                    bwdz->chunks = le16toh(u16);
+                    CHECK_COND(len == bwdz->chunks * 2 + 6, DZ_RET_MALFORM);
+                    bwdz->chunk_base = ftello(fp);
+                    PERROR_IF(fseeko(fp, len - 6, SEEK_CUR), "seek failed");
+                }
+                else
+                {
+                    PERROR_IF(fseeko(fp, len, SEEK_CUR), "seek failed");
+                }
+                xlen -= 4 + len;
+            }
+            if (xlen > 0)
+            {
+                break;
+            }
+            CHECK_COND(xlen == 0, DZ_RET_MALFORM);
+            CHECK_COND(bwdz->chunk_base, DZ_RET_MALFORM);
+            if (flags & 8) /* fname */
+            {
+                for (ch = fgetc(fp); ch && ch != EOF; ch = fgetc(fp))
+                {}
+                CHECK_COND(ch == '\0', DZ_RET_MALFORM);
+            }
+            if (flags & 0x10) /* comment */
+            {
+                for (ch = fgetc(fp); ch && ch != EOF; ch = fgetc(fp))
+                {}
+                CHECK_COND(ch == '\0', DZ_RET_MALFORM);
+            }
+            if (flags & 2) /* fhcrc */
+            {
+                CHECK_COND((ch = fgetc(fp)) != EOF, DZ_RET_MALFORM);
+                CHECK_COND((ch = fgetc(fp)) != EOF, DZ_RET_MALFORM);
+            }
+            bwdz->base = ftello(fp);
+            pos = bwdz->base;
+            PERROR_IF(fseeko(fp, bwdz->chunk_base, SEEK_SET), "seek failed");
+            bwdz->offsets = (off_t *) malloc(sizeof(off_t) * (bwdz->chunks+1));
+            CHECK_COND(bwdz->offsets, DZ_RET_MEM_ERR);
+            for (i = 0; i < bwdz->chunks; i++)
+            {
+                CHECK_COND(fread(&u16, 2, 1, fp) == 1, DZ_RET_MALFORM);
+                bwdz->offsets[i] = pos;
+                pos += le16toh(u16);
+            }
+            CHECK_COND(i == bwdz->chunks, DZ_RET_MALFORM);
+            bwdz->offsets[i] = pos;
+            bwdz->map = (sauchar_t *) mmap(NULL, bwdz->rawlen,
+                                          PROT_READ, MAP_SHARED,
+                                          fileno(fp), 0);
+            PERROR_IF(!bwdz->map || bwdz->map == MAP_FAILED, "mmap failed");
+            bwdz->rawbase = bwdz->pos;
+            bwdz->pos = 0;
+            bwdz->rawlen -= bwdz->rawbase;
+            bwdz->duped = 0;
+            return bwdz;
+        } while (0);
+        if (bwdz->offsets)
+        {
+            free(bwdz->offsets);
+        }
+        free(bwdz);
+    } while (0);
+    return NULL;
+}
+
+static saidx_t bw_file_size_from_dzip_fp(bw_file_t *bwfp)
+{
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+    return bwdz->len;
+}
+
+static void bw_file_seek_set_from_dzip_fp(bw_file_t *bwfp, saidx_t pos)
+{
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+    if (pos >= 0 && pos <= bwdz->len)
+    {
+        bwdz->pos = pos;
+    }
+    else
+    {
+        fprintf(stderr, "seek beyond range\n");
+    }
+}
+
+static int bw_file_get_char_from_dzip_fp(bw_file_t *bwfp)
+{
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+    if (bwdz->pos >= 0 && bwdz->pos < bwdz->len)
+    {
+        return bwdz->map[bwdz->rawbase + bwdz->pos++];
+    }
+    return -1;
+}
+
+static void bw_file_close_from_dzip_fp(bw_file_t *bwfp)
+{
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+    if (!bwdz->duped && munmap(bwdz->map, bwdz->rawbase + bwdz->rawlen))
+    {
+        perror("munmap failed");
+    }
+    if (!bwdz->duped && bwdz->offsets)
+    {
+        free(bwdz->offsets);
+    }
+    free(bwdz);
+    free(bwfp);
+}
+
+static bw_file_t *bw_file_dup_from_dzip_fp(bw_file_t *bwfp)
+{
+    bw_file_t *bwgp;
+    bw_dzip_fp_t *bzdw;
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+    if (!bwdz)
+    {
+        return NULL;
+    }
+    bwgp = (bw_file_t *) malloc(sizeof(bw_file_t));
+    if (!bwgp)
+    {
+        return NULL;
+    }
+    bzdw = (bw_dzip_fp_t *) malloc(sizeof(bw_dzip_fp_t));
+    if (!bzdw)
+    {
+        free(bwgp);
+        return NULL;
+    }
+    *bzdw = *bwdz;
+    bzdw->duped = 1;
+    *bwgp = *bwfp;
+    bwgp->tag = bzdw;
+    return bwgp;
+}
+bw_file_t *bw_file_new_from_dzip_fp(FILE *fp, int *pret, int *perr)
+{
+    bw_file_t *bwfp;
+#undef CHECK_COND
+#define CHECK_COND(_cond, _ret) \
+    {\
+        if (!(_cond))\
+        {\
+            if (pret) *pret = _ret;\
+            if (perr) *perr = __LINE__;\
+            return NULL;\
+        }\
+    }
+    CHECK_COND(fp, DZ_RET_INV_ARG);
+    bwfp = (bw_file_t *) malloc(sizeof(bw_file_t));
+    CHECK_COND(bwfp, DZ_RET_MEM_ERR);
+    bwfp->tag = bw_file_new_dzip_fp(fp, pret, perr);
+    bwfp->seek = bw_file_seek_set_from_dzip_fp;
+    bwfp->size = bw_file_size_from_dzip_fp;
+    bwfp->getc = bw_file_get_char_from_dzip_fp;
+    bwfp->close = bw_file_close_from_dzip_fp;
+    bwfp->dup = bw_file_dup_from_dzip_fp;
+    return bwfp;
 }
 /* vim: set ts=4 sw=4 et cino=l1,t0,(0,w1,W2s,M1 fo+=mM tw=80 cc=80 : */
