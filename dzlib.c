@@ -40,6 +40,9 @@
 #else
 #include <sys/mman.h>
 #endif
+#ifdef getc
+#undef getc
+#endif
 
 int dzip_compress(const char *fname, int force)
 {
@@ -245,6 +248,7 @@ int dzip_compress(const char *fname, int force)
                 r = deflateEnd(&zs[i]);
                 CHECK_COND(r == Z_OK, DZ_RET_ZLIB_ERR + r);
             }
+            assert(i == jobs);
             for (i = 0; i < jobs - 1; i++)
             {
                 CHECK_COND(zs[i].avail_out==zs[i+1].avail_out, DZ_RET_ZLIB_ERR);
@@ -252,6 +256,8 @@ int dzip_compress(const char *fname, int force)
                                    DZ_DEFLATE_BUF_SIZE - zs[i].avail_out),
                            DZ_RET_ZLIB_ERR);
             }
+            assert(i + 1 == jobs);
+            assert(zs[i].avail_out + 2 == DZ_DEFLATE_BUF_SIZE);
             do
             {
                 CHECK_COND(fwrite(OUT_BUF(0), 1,
@@ -260,6 +266,10 @@ int dzip_compress(const char *fname, int force)
                            DZ_RET_IO_ERR);
             } while (0);
             free(buf);
+            if (err)
+            {
+                break;
+            }
             u32 = htole32(crc);
             CHECK_COND(fwrite(&u32, 1, 4, gp) == 4, DZ_RET_IO_ERR);
             u32 = st.st_size;
@@ -267,6 +277,10 @@ int dzip_compress(const char *fname, int force)
             CHECK_COND(fwrite(&u32, 1, 4, gp) == 4, DZ_RET_IO_ERR);
         } while (0);
         free(zs);
+        if (err)
+        {
+            break;
+        }
         CHECK_COND(!fseek(gp, 22, SEEK_SET), DZ_RET_IO_ERR);
         CHECK_COND(fwrite(header + 22, 2, chunks, gp) == chunks, DZ_RET_IO_ERR);
     } while (0);
@@ -298,6 +312,7 @@ int dzip_decompress(const char *fname, int force)
     int ret, err;
     FILE *fp, *gp;
     char *ofname;
+    bw_file_t *bwfp;
     ret = DZ_RET_OK;
     err = 0;
     fp = gp = NULL;
@@ -306,6 +321,7 @@ int dzip_decompress(const char *fname, int force)
     {
         int fnlen;
         char *p;
+        saidx_t len;
         CHECK_COND(fname, DZ_RET_INV_ARG);
         CHECK_COND(strrchr(fname, '.'), DZ_RET_INV_ARG);
         fp = fopen(fname, "rb");
@@ -323,6 +339,17 @@ int dzip_decompress(const char *fname, int force)
         }
         gp = fopen(ofname, "wb");
         CHECK_COND(gp, DZ_RET_IO_ERR);
+        bwfp = bw_file_new_from_dzip_fp(fp, &ret, &err);
+        if (!bwfp)
+        {
+            break;
+        }
+        len = bwfp->size(bwfp);
+        while (len--)
+        {
+            fputc(bwfp->getc(bwfp), gp);
+        }
+        bwfp->close(bwfp);
     } while (0);
     if (fp)
     {
@@ -343,6 +370,10 @@ int dzip_decompress(const char *fname, int force)
     return ret;
 }
 
+#ifndef DZ_CHUNK_BUF_CNT
+#define DZ_CHUNK_BUF_CNT 2
+#endif
+
 typedef struct _bw_dzip_fp_t {
     sauchar_t *map;
     off_t   base;
@@ -356,6 +387,9 @@ typedef struct _bw_dzip_fp_t {
     int     chunks;
     off_t   *offsets;
     int     duped;
+    int     cache[DZ_CHUNK_BUF_CNT];
+    sauchar_t*buf[DZ_CHUNK_BUF_CNT];
+    z_stream zs;
 } bw_dzip_fp_t;
 
 static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
@@ -383,6 +417,7 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
     }
     do
     {
+        int i;
         CHECK_COND(bwdz, DZ_RET_MEM_ERR);
         memset(bwdz, 0, sizeof(bw_dzip_fp_t));
         bwdz->pos = ftello(fp);
@@ -392,7 +427,6 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
             uint32_t u32;
             uint16_t u16;
             int ch;
-            int i;
             int flags;
             int xlen, len;
             PERROR_IF(fseeko(fp, 0, SEEK_END), "seek failed");
@@ -470,6 +504,12 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
             }
             CHECK_COND(i == bwdz->chunks, DZ_RET_MALFORM);
             bwdz->offsets[i] = pos;
+            pos += 2; /* Z_FINISH */
+            PERROR_IF(fseeko(fp, pos, SEEK_SET), "seek failed");
+            CHECK_COND(fread(&u32, 4, 1, fp) == 1, DZ_RET_MALFORM); /* crc */
+            CHECK_COND(fread(&u32, 4, 1, fp) == 1, DZ_RET_MALFORM); /* size */
+            bwdz->len = le32toh(u32);
+            PERROR_IF(fseeko(fp, bwdz->pos, SEEK_SET), "seek failed");
             bwdz->map = (sauchar_t *) mmap(NULL, bwdz->rawlen,
                                           PROT_READ, MAP_SHARED,
                                           fileno(fp), 0);
@@ -478,8 +518,27 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
             bwdz->pos = 0;
             bwdz->rawlen -= bwdz->rawbase;
             bwdz->duped = 0;
+            for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
+            {
+                bwdz->cache[i] = -1;
+                bwdz->buf[i] = (sauchar_t *) malloc(bwdz->chunk_len);
+                CHECK_COND(bwdz->buf[i], DZ_RET_MEM_ERR);
+            }
+            if (i < DZ_CHUNK_BUF_CNT)
+            {
+                break;
+            }
+            i = inflateInit2(&bwdz->zs, -15);
+            CHECK_COND(i == Z_OK, DZ_RET_ZLIB_ERR + i);
             return bwdz;
         } while (0);
+        for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
+        {
+            if (bwdz->buf[i])
+            {
+                free(bwdz->buf[i]);
+            }
+        }
         if (bwdz->offsets)
         {
             free(bwdz->offsets);
@@ -508,33 +567,95 @@ static void bw_file_seek_set_from_dzip_fp(bw_file_t *bwfp, saidx_t pos)
     }
 }
 
+static void bw_dzip_shift_cache(bw_dzip_fp_t *bwdz, int till)
+{
+    int i;
+    for (i = 0; i < till; i++)
+    {
+        bwdz->cache[i + 1] = bwdz->cache[i];
+        bwdz->buf[i + 1] = bwdz->buf[i];
+    }
+}
+
 static int bw_file_get_char_from_dzip_fp(bw_file_t *bwfp)
 {
     bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
     if (bwdz->pos >= 0 && bwdz->pos < bwdz->len)
     {
-        return bwdz->map[bwdz->rawbase + bwdz->pos++];
+        int i;
+        sauchar_t *buf;
+        int chunk = bwdz->pos / bwdz->chunk_len;
+        int pos = bwdz->pos++ % bwdz->chunk_len;
+        for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
+        {
+            if (bwdz->cache[i] == chunk)
+            {
+                break;
+            }
+        }
+        if (i == 0)
+        {
+            buf = bwdz->buf[i];
+        }
+        else
+        {
+            if (i == DZ_CHUNK_BUF_CNT)
+            {
+                bwdz->cache[DZ_CHUNK_BUF_CNT - 1] = -1;
+                ZSTRM_SET(&bwdz->zs, next_in, (Bytef *) bwdz->map +
+                          bwdz->offsets[chunk]);
+                ZSTRM_SET(&bwdz->zs, avail_in,
+                          bwdz->offsets[chunk + 1] - bwdz->offsets[chunk]);
+                ZSTRM_SET(&bwdz->zs, next_out, (Bytef *)
+                          bwdz->buf[DZ_CHUNK_BUF_CNT - 1]);
+                ZSTRM_SET(&bwdz->zs, avail_out, bwdz->chunk_len);
+                if (inflate(&bwdz->zs, Z_PARTIAL_FLUSH) != Z_OK)
+                {
+                    fprintf(stderr, "inflate error %s\n", bwdz->zs.msg);
+                }
+                assert(ZSTRM_GET(&bwdz->zs, avail_in) == 0);
+                --i;
+            }
+            buf = bwdz->buf[i];
+            bw_dzip_shift_cache(bwdz, i);
+            bwdz->cache[0] = chunk;
+            bwdz->buf[0] = buf;
+        }
+        return buf[pos];
     }
     return -1;
 }
 
 static void bw_file_close_from_dzip_fp(bw_file_t *bwfp)
 {
+    int i;
     bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
-    if (!bwdz->duped && munmap(bwdz->map, bwdz->rawbase + bwdz->rawlen))
+    if (!bwdz->duped)
     {
-        perror("munmap failed");
+        if (munmap(bwdz->map, bwdz->rawbase + bwdz->rawlen))
+        {
+            perror("munmap failed");
+        }
+        if (bwdz->offsets)
+        {
+            free(bwdz->offsets);
+        }
     }
-    if (!bwdz->duped && bwdz->offsets)
+    for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
     {
-        free(bwdz->offsets);
+        if (bwdz->buf[i])
+        {
+            free(bwdz->buf[i]);
+        }
     }
+    inflateEnd(&bwdz->zs);
     free(bwdz);
     free(bwfp);
 }
 
 static bw_file_t *bw_file_dup_from_dzip_fp(bw_file_t *bwfp)
 {
+    int i;
     bw_file_t *bwgp;
     bw_dzip_fp_t *bzdw;
     bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
@@ -555,8 +676,31 @@ static bw_file_t *bw_file_dup_from_dzip_fp(bw_file_t *bwfp)
     }
     *bzdw = *bwdz;
     bzdw->duped = 1;
+    for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
+    {
+        bzdw->buf[i] = NULL;
+    }
+    for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
+    {
+        bzdw->buf[i] = (sauchar_t *) malloc(bzdw->chunk_len);
+        if (!bzdw->buf[i])
+        {
+            break;
+        }
+        if (bzdw->cache[i] >= 0)
+        {
+            memcpy(bzdw->buf[i], bwdz->buf[i], bzdw->chunk_len);
+        }
+    }
     *bwgp = *bwfp;
     bwgp->tag = bzdw;
+    memset(&bzdw->zs, 0, sizeof(z_stream));
+    if (i < DZ_CHUNK_BUF_CNT ||
+        inflateInit2(&bzdw->zs, -15) != Z_OK)
+    {
+        bw_file_close_from_dzip_fp(bwgp);
+        return NULL;
+    }
     return bwgp;
 }
 bw_file_t *bw_file_new_from_dzip_fp(FILE *fp, int *pret, int *perr)
