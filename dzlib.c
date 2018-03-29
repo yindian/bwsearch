@@ -345,6 +345,7 @@ int dzip_decompress(const char *fname, int force)
             break;
         }
         len = bwfp->size(bwfp);
+#if 0
         while (len--)
         {
 #if 1
@@ -353,6 +354,28 @@ int dzip_decompress(const char *fname, int force)
             bwfp->getc(bwfp);
 #endif
         }
+#else
+        {
+#define BUF_SIZE            (1 << 16)
+#define DZ_READ_SMALL_LEN   3
+#define SANITY_CHECK        0
+            sauchar_t buf[BUF_SIZE];
+            saidx_t n;
+            for (; len; len -= n)
+            {
+#if SANITY_CHECK
+                assert(len > 0);
+#endif
+                n = bwfp->read(bwfp, buf, BUF_SIZE);
+#if SANITY_CHECK
+                CHECK_COND(n, DZ_RET_IO_ERR);
+#endif
+#if 1
+                fwrite(buf, 1, n, gp);
+#endif
+            }
+        }
+#endif
         bwfp->close(bwfp);
     } while (0);
     if (fp)
@@ -673,29 +696,25 @@ static int bw_file_get_char_from_dzip_fp(bw_file_t *bwfp)
 static saidx_t bw_file_read_from_dzip_fp(bw_file_t *bwfp,
                                          sauchar_t *buf, int len)
 {
+    int c;
     sauchar_t *p = buf;
-    if (len > 2)
+    if (len > DZ_READ_SMALL_LEN)
     {
         bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
-        if ((*p = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
+        while (len)
         {
-            return 0;
-        }
-        ++p;
-        for (--len; len;)
-        {
-            if (bwdz->cur_pos == bwdz->cur_chunk_tail)
+            int step = bwdz->cur_chunk_tail - bwdz->cur_pos;
+            if (step == 0)
             {
-                if ((*p = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
+                if ((c = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
                 {
                     break;
                 }
-                ++p;
+                *p++ = c;
                 --len;
             }
             else
             {
-                int step = bwdz->cur_chunk_tail - bwdz->cur_pos;
                 if (step > len)
                 {
                     step = len;
@@ -709,13 +728,14 @@ static saidx_t bw_file_read_from_dzip_fp(bw_file_t *bwfp,
     }
     else
     {
-        for (; len; --len)
+        while (len)
         {
-            if ((*p = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
+            if ((c = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
             {
                 break;
             }
-            ++p;
+            *p++ = c;
+            --len;
         }
     }
     return p - buf;
