@@ -347,7 +347,11 @@ int dzip_decompress(const char *fname, int force)
         len = bwfp->size(bwfp);
         while (len--)
         {
-            fputc(bwfp->getc(bwfp), gp);
+#if 1
+            putc(bwfp->getc(bwfp), gp);
+#else
+            bwfp->getc(bwfp);
+#endif
         }
         bwfp->close(bwfp);
     } while (0);
@@ -377,7 +381,6 @@ int dzip_decompress(const char *fname, int force)
 typedef struct _bw_dzip_fp_t {
     sauchar_t *map;
     off_t   base;
-    off_t   pos;
     off_t   len;
     off_t   rawlen;
     off_t   rawbase;
@@ -387,6 +390,10 @@ typedef struct _bw_dzip_fp_t {
     int     chunks;
     off_t   *offsets;
     int     duped;
+    int     pos_chunk;
+    int     pos_in_chunk;
+    sauchar_t *cur_pos;
+    sauchar_t *cur_chunk_tail;
     int     cache[DZ_CHUNK_BUF_CNT];
     sauchar_t*buf[DZ_CHUNK_BUF_CNT];
     z_stream zs;
@@ -420,7 +427,7 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
         int i;
         CHECK_COND(bwdz, DZ_RET_MEM_ERR);
         memset(bwdz, 0, sizeof(bw_dzip_fp_t));
-        bwdz->pos = ftello(fp);
+        bwdz->rawbase = ftello(fp);
         do
         {
             off_t pos;
@@ -431,7 +438,7 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
             int xlen, len;
             PERROR_IF(fseeko(fp, 0, SEEK_END), "seek failed");
             bwdz->rawlen = ftello(fp);
-            PERROR_IF(fseeko(fp, bwdz->pos, SEEK_SET), "seek failed");
+            PERROR_IF(fseeko(fp, bwdz->rawbase, SEEK_SET), "seek failed");
             CHECK_COND(fgetc(fp) == 0x1f, DZ_RET_MALFORM);
             CHECK_COND(fgetc(fp) == 0x8b, DZ_RET_MALFORM); /* gzip magic */
             CHECK_COND(fgetc(fp) == Z_DEFLATED, DZ_RET_MALFORM); /*compression*/
@@ -509,13 +516,11 @@ static bw_dzip_fp_t *bw_file_new_dzip_fp(FILE *fp, int *pret, int *perr)
             CHECK_COND(fread(&u32, 4, 1, fp) == 1, DZ_RET_MALFORM); /* crc */
             CHECK_COND(fread(&u32, 4, 1, fp) == 1, DZ_RET_MALFORM); /* size */
             bwdz->len = le32toh(u32);
-            PERROR_IF(fseeko(fp, bwdz->pos, SEEK_SET), "seek failed");
+            PERROR_IF(fseeko(fp, bwdz->rawbase, SEEK_SET), "seek failed");
             bwdz->map = (sauchar_t *) mmap(NULL, bwdz->rawlen,
                                           PROT_READ, MAP_SHARED,
                                           fileno(fp), 0);
             PERROR_IF(!bwdz->map || bwdz->map == MAP_FAILED, "mmap failed");
-            bwdz->rawbase = bwdz->pos;
-            bwdz->pos = 0;
             bwdz->rawlen -= bwdz->rawbase;
             bwdz->duped = 0;
             for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
@@ -559,7 +564,9 @@ static void bw_file_seek_set_from_dzip_fp(bw_file_t *bwfp, saidx_t pos)
     bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
     if (pos >= 0 && pos <= bwdz->len)
     {
-        bwdz->pos = pos;
+        bwdz->pos_chunk = pos / bwdz->chunk_len;
+        bwdz->pos_in_chunk = pos % bwdz->chunk_len;
+        bwdz->cur_pos = bwdz->cur_chunk_tail = NULL;
     }
     else
     {
@@ -577,15 +584,30 @@ static void bw_dzip_shift_cache(bw_dzip_fp_t *bwdz, int till)
     }
 }
 
+#ifndef unlikely
+#ifdef __GNUC__
+#define unlikely(_x)     __builtin_expect((_x),0)
+#else
+#define unlikely(_x)     (_x)
+#endif
+#endif
 static int bw_file_get_char_from_dzip_fp(bw_file_t *bwfp)
 {
     bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
-    if (bwdz->pos >= 0 && bwdz->pos < bwdz->len)
+    if (unlikely(bwdz->cur_pos == bwdz->cur_chunk_tail))
     {
         int i;
         sauchar_t *buf;
-        int chunk = bwdz->pos / bwdz->chunk_len;
-        int pos = bwdz->pos++ % bwdz->chunk_len;
+        int chunk = bwdz->pos_chunk;
+        if (bwdz->cur_pos)
+        {
+            if (++chunk == bwdz->chunks)
+            {
+                return -1;
+            }
+            bwdz->pos_chunk = chunk;
+            bwdz->pos_in_chunk = 0;
+        }
         for (i = 0; i < DZ_CHUNK_BUF_CNT; i++)
         {
             if (bwdz->cache[i] == chunk)
@@ -621,9 +643,17 @@ static int bw_file_get_char_from_dzip_fp(bw_file_t *bwfp)
             bwdz->cache[0] = chunk;
             bwdz->buf[0] = buf;
         }
-        return buf[pos];
+        if (unlikely(chunk + 1 == bwdz->chunks))
+        {
+            bwdz->cur_chunk_tail = buf + (bwdz->len % bwdz->chunk_len);
+        }
+        else
+        {
+            bwdz->cur_chunk_tail = buf + bwdz->chunk_len;
+        }
+        bwdz->cur_pos = buf + bwdz->pos_in_chunk;
     }
-    return -1;
+    return *bwdz->cur_pos++;
 }
 
 static void bw_file_close_from_dzip_fp(bw_file_t *bwfp)
