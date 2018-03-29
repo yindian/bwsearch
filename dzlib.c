@@ -393,6 +393,7 @@ typedef struct _bw_dzip_fp_t {
     int     pos_chunk;
     int     pos_in_chunk;
     sauchar_t *cur_pos;
+    sauchar_t *cur_chunk_head;
     sauchar_t *cur_chunk_tail;
     int     cache[DZ_CHUNK_BUF_CNT];
     sauchar_t*buf[DZ_CHUNK_BUF_CNT];
@@ -567,11 +568,23 @@ static void bw_file_seek_set_from_dzip_fp(bw_file_t *bwfp, saidx_t pos)
         bwdz->pos_chunk = pos / bwdz->chunk_len;
         bwdz->pos_in_chunk = pos % bwdz->chunk_len;
         bwdz->cur_pos = bwdz->cur_chunk_tail = NULL;
+        bwdz->cur_chunk_head = NULL;
     }
     else
     {
         fprintf(stderr, "seek beyond range\n");
     }
+}
+
+static saidx_t bw_file_tell_from_dzip_fp(bw_file_t *bwfp)
+{
+    bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+    if (!bwdz->cur_pos)
+    {
+        return bwdz->pos_chunk * bwdz->chunk_len + bwdz->pos_in_chunk;
+    }
+    return bwdz->pos_chunk * bwdz->chunk_len + (
+            bwdz->cur_pos - bwdz->cur_chunk_head);
 }
 
 static void bw_dzip_shift_cache(bw_dzip_fp_t *bwdz, int till)
@@ -651,9 +664,61 @@ static int bw_file_get_char_from_dzip_fp(bw_file_t *bwfp)
         {
             bwdz->cur_chunk_tail = buf + bwdz->chunk_len;
         }
+        bwdz->cur_chunk_head = buf;
         bwdz->cur_pos = buf + bwdz->pos_in_chunk;
     }
     return *bwdz->cur_pos++;
+}
+
+static saidx_t bw_file_read_from_dzip_fp(bw_file_t *bwfp,
+                                         sauchar_t *buf, int len)
+{
+    sauchar_t *p = buf;
+    if (len > 2)
+    {
+        bw_dzip_fp_t *bwdz = (bw_dzip_fp_t *) bwfp->tag;
+        if ((*p = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
+        {
+            return 0;
+        }
+        ++p;
+        for (--len; len;)
+        {
+            if (bwdz->cur_pos == bwdz->cur_chunk_tail)
+            {
+                if ((*p = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
+                {
+                    break;
+                }
+                ++p;
+                --len;
+            }
+            else
+            {
+                int step = bwdz->cur_chunk_tail - bwdz->cur_pos;
+                if (step > len)
+                {
+                    step = len;
+                }
+                memcpy(p, bwdz->cur_pos, step);
+                p += step;
+                bwdz->cur_pos += step;
+                len -= step;
+            }
+        }
+    }
+    else
+    {
+        for (; len; --len)
+        {
+            if ((*p = bw_file_get_char_from_dzip_fp(bwfp)) < 0)
+            {
+                break;
+            }
+            ++p;
+        }
+    }
+    return p - buf;
 }
 
 static void bw_file_close_from_dzip_fp(bw_file_t *bwfp)
@@ -751,8 +816,10 @@ bw_file_t *bw_file_new_from_dzip_fp(FILE *fp, int *pret, int *perr)
     CHECK_COND(bwfp, DZ_RET_MEM_ERR);
     bwfp->tag = bw_file_new_dzip_fp(fp, pret, perr);
     bwfp->seek = bw_file_seek_set_from_dzip_fp;
+    bwfp->tell = bw_file_tell_from_dzip_fp;
     bwfp->size = bw_file_size_from_dzip_fp;
     bwfp->getc = bw_file_get_char_from_dzip_fp;
+    bwfp->read = bw_file_read_from_dzip_fp;
     bwfp->close = bw_file_close_from_dzip_fp;
     bwfp->dup = bw_file_dup_from_dzip_fp;
     return bwfp;

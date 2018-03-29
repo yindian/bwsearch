@@ -570,6 +570,12 @@ static void bw_file_seek_set_from_mmap(bw_file_t *bwfp, saidx_t pos)
     }
 }
 
+static saidx_t bw_file_tell_from_mmap(bw_file_t *bwfp)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    return bwm->pos;
+}
+
 static int bw_file_get_char_from_mmap(bw_file_t *bwfp)
 {
     bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
@@ -578,6 +584,25 @@ static int bw_file_get_char_from_mmap(bw_file_t *bwfp)
         return bwm->map[bwm->base + bwm->pos++];
     }
     return -1;
+}
+
+static saidx_t bw_file_read_from_mmap(bw_file_t *bwfp, sauchar_t *buf, int len)
+{
+    bw_mmap_t *bwm = (bw_mmap_t *) bwfp->tag;
+    if (bwm->pos >= 0)
+    {
+        if (len > bwm->len - bwm->pos)
+        {
+            len = bwm->len - bwm->pos;
+        }
+        if (len)
+        {
+            memcpy(buf, bwm->map + bwm->base + bwm->pos, len);
+            bwm->pos += len;
+        }
+        return len;
+    }
+    return 0;
 }
 
 static void bw_file_close_from_mmap(bw_file_t *bwfp)
@@ -627,6 +652,12 @@ static void bw_file_seek_set_from_fp(bw_file_t *bwfp, saidx_t pos)
     }
 }
 
+static saidx_t bw_file_tell_from_fp(bw_file_t *bwfp)
+{
+    FILE *fp = (FILE *) bwfp->tag;
+    return ftello(fp);
+}
+
 static saidx_t bw_file_size_from_fp(bw_file_t *bwfp)
 {
     FILE *fp = (FILE *) bwfp->tag;
@@ -649,6 +680,12 @@ static int bw_file_get_char_from_fp(bw_file_t *bwfp)
 {
     FILE *fp = (FILE *) bwfp->tag;
     return fgetc(fp);
+}
+
+static saidx_t bw_file_read_from_fp(bw_file_t *bwfp, sauchar_t *buf, int len)
+{
+    FILE *fp = (FILE *) bwfp->tag;
+    return fread(buf, 1, len, fp);
 }
 
 static void bw_file_close_from_fp(bw_file_t *bwfp)
@@ -679,8 +716,10 @@ bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
     {
         bwfp->tag = bw_file_new_mmap(fp);
         bwfp->seek = bw_file_seek_set_from_mmap;
+        bwfp->tell = bw_file_tell_from_mmap;
         bwfp->size = bw_file_size_from_mmap;
         bwfp->getc = bw_file_get_char_from_mmap;
+        bwfp->read = bw_file_read_from_mmap;
         bwfp->close = bw_file_close_from_mmap;
         bwfp->dup = bw_file_dup_from_mmap;
     }
@@ -688,8 +727,10 @@ bw_file_t *bw_file_new_from_fp(FILE *fp, int flags)
     {
         bwfp->tag = fp;
         bwfp->seek = bw_file_seek_set_from_fp;
+        bwfp->tell = bw_file_tell_from_fp;
         bwfp->size = bw_file_size_from_fp;
         bwfp->getc = bw_file_get_char_from_fp;
+        bwfp->read = bw_file_read_from_fp;
         bwfp->close = bw_file_close_from_fp;
         bwfp->dup = bw_file_dup_from_fp;
     }
