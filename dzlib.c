@@ -356,9 +356,10 @@ int dzip_decompress(const char *fname, int force)
         }
 #else
         {
-#define BUF_SIZE            (1 << 16)
+#define BUF_SIZE            DZ_CHUNK_SIZE
 #define DZ_READ_SMALL_LEN   3
 #define SANITY_CHECK        0
+#if 0
             sauchar_t buf[BUF_SIZE];
             saidx_t n;
             for (; len; len -= n)
@@ -374,6 +375,87 @@ int dzip_decompress(const char *fname, int force)
                 fwrite(buf, 1, n, gp);
 #endif
             }
+#else
+            int jobs;
+            sauchar_t *buf;
+            saidx_t *n;
+            saidx_t full_size;
+            saidx_t old_len;
+            bw_file_t **pbwf;
+            int i;
+#ifdef _OPENMP
+            jobs = omp_get_max_threads();
+#else
+            jobs = 1;
+#endif
+            jobs <<= 2;
+            full_size = jobs * BUF_SIZE;
+            buf = (sauchar_t *) malloc(full_size);
+            assert(buf);
+            n = (saidx_t *) malloc(jobs * sizeof(saidx_t));
+            assert(n);
+            pbwf = (bw_file_t **) malloc(jobs * sizeof(bw_file_t *));
+            assert(pbwf);
+            for (i = 0; i < jobs; i++)
+            {
+                pbwf[i] = bwfp->dup(bwfp);
+                assert(pbwf[i]);
+            }
+            old_len = len;
+            while (len)
+            {
+                int cnt;
+                if (len >= full_size)
+                {
+                    cnt = jobs;
+                }
+                else
+                {
+                    cnt = (len + BUF_SIZE - 1) / BUF_SIZE;
+                }
+#ifdef _OPENMP
+#pragma omp parallel for default(shared) private(i)
+#endif
+                for (i = 0; i < cnt; i++)
+                {
+                    bw_file_t *bwfp = pbwf[i];
+                    bwfp->seek(bwfp, old_len - len + i * BUF_SIZE);
+                    n[i] = bwfp->read(bwfp, &buf[i * BUF_SIZE], BUF_SIZE);
+#if SANITY_CHECK
+                    assert(n[i]);
+#endif
+                }
+                for (i = 0; i < cnt; i++)
+                {
+#if SANITY_CHECK
+                    assert(n[i] == BUF_SIZE || i == cnt - 1);
+#endif
+#if 1
+                    fwrite(&buf[i * BUF_SIZE], 1, n[i], gp);
+#endif
+                    len -= n[i];
+                }
+#if SANITY_CHECK
+                if (len < 0)
+                {
+                    fprintf(stderr, "len=%d, cnt=%d", len, cnt);
+                    for (i = 0; i < cnt; i++)
+                    {
+                        fprintf(stderr, ", n[%d]=%d", i, n[i]);
+                    }
+                    fprintf(stderr, "\n");
+                }
+                assert(len >= 0);
+#endif
+            }
+            for (i = 0; i < jobs; i++)
+            {
+                pbwf[i]->close(pbwf[i]);
+            }
+            free(pbwf);
+            free(n);
+            free(buf);
+#endif
         }
 #endif
         bwfp->close(bwfp);
